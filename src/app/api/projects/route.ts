@@ -1,0 +1,53 @@
+import { prisma } from "@/lib/db"
+import { NextRequest, NextResponse } from "next/server"
+
+export async function POST(request: NextRequest) {
+  const body = await request.json()
+
+  // Auto-generate project number
+  const lastProject = await prisma.project.findFirst({
+    orderBy: { projectNumber: "desc" },
+    select: { projectNumber: true },
+  })
+
+  let nextNumber = 100001
+  if (lastProject) {
+    const lastNum = parseInt(lastProject.projectNumber, 10)
+    if (!isNaN(lastNum)) {
+      nextNumber = lastNum + 1
+    }
+  }
+
+  const project = await prisma.project.create({
+    data: {
+      projectNumber: String(nextNumber),
+      name: body.name,
+      customerId: body.customerId || null,
+      coordinatorId: body.coordinatorId || null,
+      projectType: body.projectType || "STANDARD",
+      workStream: body.workStream || "ADHOC",
+      salesStage: body.salesStage || "OPPORTUNITY",
+      projectStatus: body.projectStatus || "OPPORTUNITY",
+      contractType: body.contractType || "STANDARD",
+      siteLocation: body.siteLocation || null,
+      notes: body.notes || null,
+      enquiryReceived: body.enquiryReceived ? new Date(body.enquiryReceived) : null,
+      targetCompletion: body.targetCompletion ? new Date(body.targetCompletion) : null,
+    },
+  })
+
+  return NextResponse.json(project, { status: 201 })
+}
+
+export async function GET() {
+  const projects = await prisma.project.findMany({
+    orderBy: { updatedAt: "desc" },
+    include: {
+      customer: { select: { name: true } },
+      coordinator: { select: { name: true } },
+      _count: { select: { products: true } },
+    },
+  })
+
+  return NextResponse.json(projects)
+}
