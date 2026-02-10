@@ -1,0 +1,76 @@
+"use client"
+
+import { useRouter, useSearchParams } from "next/navigation"
+import { Input } from "@/components/ui/input"
+import { Search } from "lucide-react"
+
+const statuses = ["ALL", "OPPORTUNITY", "QUOTATION", "DESIGN", "MANUFACTURE", "INSTALLATION", "REVIEW", "COMPLETE"]
+const salesStages = ["ALL", "OPPORTUNITY", "QUOTED", "ORDER"]
+const workStreams = ["ALL", "COMMUNITY", "UTILITIES", "BESPOKE", "BLAST", "BUND_CONTAINMENT", "REFURBISHMENT", "ADHOC"]
+
+function prettify(val: string) {
+  if (val === "ALL") return "All"
+  return val.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+}
+
+export function ProjectFilters() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  function updateFilter(key: string, value: string) {
+    const params = new URLSearchParams(searchParams.toString())
+    if (value === "ALL" || !value) {
+      params.delete(key)
+    } else {
+      params.set(key, value)
+    }
+    router.push(`/projects?${params.toString()}`)
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <Input
+          placeholder="Search projects..."
+          className="w-64 pl-9 text-sm"
+          defaultValue={searchParams.get("search") || ""}
+          onChange={(e) => {
+            const timeout = setTimeout(() => updateFilter("search", e.target.value), 300)
+            return () => clearTimeout(timeout)
+          }}
+        />
+      </div>
+
+      <select
+        className="rounded-lg border border-border bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        value={searchParams.get("status") || "ALL"}
+        onChange={(e) => updateFilter("status", e.target.value)}
+      >
+        {statuses.map((s) => (
+          <option key={s} value={s}>{prettify(s)}</option>
+        ))}
+      </select>
+
+      <select
+        className="rounded-lg border border-border bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        value={searchParams.get("salesStage") || "ALL"}
+        onChange={(e) => updateFilter("salesStage", e.target.value)}
+      >
+        {salesStages.map((s) => (
+          <option key={s} value={s}>{prettify(s)}</option>
+        ))}
+      </select>
+
+      <select
+        className="rounded-lg border border-border bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        value={searchParams.get("workStream") || "ALL"}
+        onChange={(e) => updateFilter("workStream", e.target.value)}
+      >
+        {workStreams.map((s) => (
+          <option key={s} value={s}>{prettify(s)}</option>
+        ))}
+      </select>
+    </div>
+  )
+}

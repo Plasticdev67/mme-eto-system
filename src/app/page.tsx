@@ -1,103 +1,266 @@
-import Image from "next/image";
+import { prisma } from "@/lib/db"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import {
+  FolderKanban,
+  Package,
+  Users,
+  AlertTriangle,
+} from "lucide-react"
+import Link from "next/link"
+import { formatDate, getProjectStatusColor, getSalesStageColor, prettifyEnum, calculateScheduleRag, getRagColor } from "@/lib/utils"
 
-export default function Home() {
+async function getDashboardData() {
+  const [
+    totalProjects,
+    activeProjects,
+    totalProducts,
+    totalCustomers,
+    projectsByStatus,
+    recentProjects,
+    overdueProducts,
+  ] = await Promise.all([
+    prisma.project.count(),
+    prisma.project.count({
+      where: { projectStatus: { notIn: ["COMPLETE", "OPPORTUNITY"] } },
+    }),
+    prisma.product.count(),
+    prisma.customer.count(),
+    prisma.project.groupBy({
+      by: ["projectStatus"],
+      _count: { id: true },
+    }),
+    prisma.project.findMany({
+      take: 15,
+      orderBy: { updatedAt: "desc" },
+      include: {
+        customer: { select: { name: true } },
+        coordinator: { select: { name: true } },
+        _count: { select: { products: true } },
+      },
+    }),
+    prisma.product.findMany({
+      where: {
+        requiredCompletionDate: { lt: new Date() },
+        currentDepartment: { notIn: ["COMPLETE", "REVIEW"] },
+      },
+      take: 10,
+      orderBy: { requiredCompletionDate: "asc" },
+      include: {
+        project: { select: { projectNumber: true, name: true } },
+      },
+    }),
+  ])
+
+  const orderProjects = await prisma.project.count({
+    where: { salesStage: "ORDER" },
+  })
+
+  return {
+    totalProjects,
+    activeProjects,
+    totalProducts,
+    totalCustomers,
+    orderProjects,
+    projectsByStatus,
+    recentProjects,
+    overdueProducts,
+  }
+}
+
+export default async function DashboardPage() {
+  const data = await getDashboardData()
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="space-y-6">
+      {/* Page header */}
+      <div>
+        <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+        <p className="text-sm text-gray-500">Overview of all projects and operations</p>
+      </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      {/* Stat cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Total Projects</p>
+                <p className="text-3xl font-semibold text-gray-900">{data.totalProjects}</p>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-50">
+                <FolderKanban className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Active Projects</p>
+                <p className="text-3xl font-semibold text-gray-900">{data.activeProjects}</p>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-50">
+                <FolderKanban className="h-6 w-6 text-emerald-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Total Products</p>
+                <p className="text-3xl font-semibold text-gray-900">{data.totalProducts}</p>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-50">
+                <Package className="h-6 w-6 text-amber-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">On Order</p>
+                <p className="text-3xl font-semibold text-gray-900">{data.orderProjects}</p>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-50">
+                <Users className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main content grid */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Projects table - takes 2 cols */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-semibold">All Projects</CardTitle>
+              <Link
+                href="/projects"
+                className="text-sm font-medium text-blue-600 hover:text-blue-700"
+              >
+                View all
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-t border-border">
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">No.</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Project</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Customer</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Sales</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium uppercase text-gray-500">Products</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium uppercase text-gray-500">RAG</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {data.recentProjects.map((project) => {
+                    const scheduleRag = calculateScheduleRag(project.targetCompletion)
+                    return (
+                      <tr key={project.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-3">
+                          <Link href={`/projects/${project.id}`} className="font-mono text-sm font-medium text-blue-600 hover:text-blue-700">
+                            {project.projectNumber}
+                          </Link>
+                        </td>
+                        <td className="px-6 py-3">
+                          <Link href={`/projects/${project.id}`} className="font-medium text-gray-900 hover:text-blue-600">
+                            {project.name}
+                          </Link>
+                        </td>
+                        <td className="px-6 py-3 text-gray-500">{project.customer?.name || "—"}</td>
+                        <td className="px-6 py-3">
+                          <Badge variant="secondary" className={getProjectStatusColor(project.projectStatus)}>
+                            {prettifyEnum(project.projectStatus)}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-3">
+                          <Badge variant="secondary" className={getSalesStageColor(project.salesStage)}>
+                            {prettifyEnum(project.salesStage)}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-3 text-center font-mono text-gray-600">{project._count.products}</td>
+                        <td className="px-6 py-3 text-center">
+                          <div className={`mx-auto h-3 w-3 rounded-full ${getRagColor(scheduleRag)}`} />
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {data.recentProjects.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                        No projects yet. <Link href="/projects/new" className="text-blue-600 hover:text-blue-700">Create your first project</Link>.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Overdue / attention needed */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <CardTitle className="text-base font-semibold">Needs Attention</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {data.overdueProducts.length > 0 ? (
+              <div className="space-y-3">
+                {data.overdueProducts.map((product) => (
+                  <div key={product.id} className="rounded-lg border border-red-100 bg-red-50 p-3">
+                    <p className="text-sm font-medium text-gray-900">{product.description}</p>
+                    <p className="text-xs text-gray-500">
+                      {product.project.projectNumber} — {product.project.name}
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-red-600">
+                      Due: {formatDate(product.requiredCompletionDate)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">No overdue items. Everything on track.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Projects by Status */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold">Projects by Stage</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-4">
+            {data.projectsByStatus.map((group) => (
+              <div key={group.projectStatus} className="flex items-center gap-2 rounded-lg border border-border px-4 py-3">
+                <Badge variant="secondary" className={getProjectStatusColor(group.projectStatus)}>
+                  {prettifyEnum(group.projectStatus)}
+                </Badge>
+                <span className="text-lg font-semibold text-gray-900">{group._count.id}</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
-  );
+  )
 }

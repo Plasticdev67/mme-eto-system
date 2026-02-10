@@ -1,0 +1,466 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// USERS & AUTH
+// ============================================================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  role          UserRole  @default(VIEWER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  coordinatedProjects  Project[]  @relation("ProjectCoordinator")
+  coordinatedProducts  Product[]  @relation("ProductCoordinator")
+  designedProducts     Product[]  @relation("ProductDesigner")
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  ESTIMATOR
+  PROJECT_COORDINATOR
+  VIEWER
+}
+
+// ============================================================
+// CUSTOMERS
+// ============================================================
+
+model Customer {
+  id            String       @id @default(cuid())
+  name          String
+  customerType  CustomerType @default(OTHER)
+  address       String?
+  phone         String?
+  email         String?
+  paymentTerms  String?
+  notes         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  // Relations
+  contacts  CustomerContact[]
+  projects  Project[]
+
+  @@map("customers")
+}
+
+enum CustomerType {
+  MAIN_CONTRACTOR
+  UTILITY
+  COUNCIL
+  DIRECT
+  DEFENCE
+  OTHER
+}
+
+model CustomerContact {
+  id         String   @id @default(cuid())
+  customerId String
+  name       String
+  role       String?
+  phone      String?
+  email      String?
+  isPrimary  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_contacts")
+}
+
+// ============================================================
+// SUPPLIERS
+// ============================================================
+
+model Supplier {
+  id              String   @id @default(cuid())
+  name            String
+  address         String?
+  phone           String?
+  email           String?
+  whatTheySupply  String?
+  paymentTerms    String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  contacts       SupplierContact[]
+  purchaseOrders PurchaseOrder[]
+
+  @@map("suppliers")
+}
+
+model SupplierContact {
+  id         String   @id @default(cuid())
+  supplierId String
+  name       String
+  role       String?
+  phone      String?
+  email      String?
+  isPrimary  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@map("supplier_contacts")
+}
+
+// ============================================================
+// PROJECTS (Central Hub)
+// ============================================================
+
+model Project {
+  id              String   @id @default(cuid())
+  projectNumber   String   @unique
+  name            String
+  customerId      String?
+  coordinatorId   String?
+
+  projectType     ProjectType     @default(STANDARD)
+  workStream      WorkStream      @default(ADHOC)
+  salesStage      SalesStage      @default(OPPORTUNITY)
+  projectStatus   ProjectStatus   @default(OPPORTUNITY)
+  contractType    ContractType    @default(STANDARD)
+
+  siteLocation    String?
+  notes           String?
+
+  // Key dates
+  enquiryReceived   DateTime?
+  quoteSubmitted    DateTime?
+  orderReceived     DateTime?
+  targetCompletion  DateTime?
+  actualCompletion  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  customer       Customer?       @relation(fields: [customerId], references: [id])
+  coordinator    User?           @relation("ProjectCoordinator", fields: [coordinatorId], references: [id])
+  products       Product[]
+  quotes         Quote[]
+  purchaseOrders PurchaseOrder[]
+  documents      Document[]
+
+  @@map("projects")
+}
+
+enum ProjectType {
+  STANDARD
+  BESPOKE_MAJOR
+}
+
+enum WorkStream {
+  COMMUNITY
+  UTILITIES
+  BESPOKE
+  BLAST
+  BUND_CONTAINMENT
+  REFURBISHMENT
+  ADHOC
+}
+
+enum SalesStage {
+  OPPORTUNITY
+  QUOTED
+  ORDER
+}
+
+enum ProjectStatus {
+  OPPORTUNITY
+  QUOTATION
+  DESIGN
+  MANUFACTURE
+  INSTALLATION
+  REVIEW
+  COMPLETE
+}
+
+enum ContractType {
+  NEC
+  STANDARD
+  FRAMEWORK_CALLOFF
+  OTHER
+}
+
+// ============================================================
+// PRODUCT CATALOGUE (Reference data)
+// ============================================================
+
+model ProductCatalogue {
+  id           String  @id @default(cuid())
+  partCode     String  @unique
+  description  String
+  classId      String  @default("PROD")
+  active       Boolean @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Products using this catalogue entry
+  products Product[]
+
+  @@map("product_catalogue")
+}
+
+// ============================================================
+// PRODUCTS (Line items within a project - THE TRACKER)
+// ============================================================
+
+model Product {
+  id                String  @id @default(cuid())
+  projectId         String
+  catalogueItemId   String?
+  partCode          String
+  description       String
+  additionalDetails String?
+  quantity          Int     @default(1)
+  productJobNumber  String?
+
+  // Assignment
+  allocatedDesignerId String?
+  coordinatorId       String?
+
+  // Current status tracking (maps to Excel tracker columns)
+  currentDepartment       Department       @default(PLANNING)
+  currentOperationalStatus String?
+  progressMonitor         String?
+
+  // Appraisal stage
+  appraisalTargetDate     DateTime?
+  appraisalFinishDate     DateTime?
+  appraisalStatus         String?
+
+  // Drawing
+  drawingNumber           String?
+
+  // Design stage
+  designPlannedStart      DateTime?
+  designTargetDate        DateTime?
+  designCompletionDate    DateTime?
+  designStatus            String?
+
+  // Production stage
+  productionPlannedStart  DateTime?
+  productionTargetDate    DateTime?
+  productionCompletionDate DateTime?
+  productionStatus        ProductionStage?
+
+  // Installation stage
+  installPlannedStart     DateTime?
+  installTargetDate       DateTime?
+  installCompletionDate   DateTime?
+  installStatus           String?
+
+  // Review
+  asBuiltComplete         Boolean  @default(false)
+  reviewCompletedDate     DateTime?
+
+  // Required completion
+  requiredCompletionDate  DateTime?
+
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  catalogueItem ProductCatalogue? @relation(fields: [catalogueItemId], references: [id])
+  designer      User?            @relation("ProductDesigner", fields: [allocatedDesignerId], references: [id])
+  coordinator   User?            @relation("ProductCoordinator", fields: [coordinatorId], references: [id])
+  quoteLines    QuoteLine[]
+  poLines       PurchaseOrderLine[]
+  documents     Document[]
+
+  @@map("products")
+}
+
+enum Department {
+  PLANNING
+  DESIGN
+  PRODUCTION
+  INSTALLATION
+  REVIEW
+  COMPLETE
+}
+
+enum ProductionStage {
+  AWAITING
+  CUTTING
+  FABRICATION
+  FITTING
+  SHOTBLASTING
+  PAINTING
+  PACKING
+  DISPATCHED
+  STORAGE
+  REWORK
+  SUB_CONTRACT
+  COMPLETED
+  N_A
+}
+
+// ============================================================
+// QUOTES
+// ============================================================
+
+model Quote {
+  id              String      @id @default(cuid())
+  projectId       String
+  quoteNumber     String      @unique
+  revisionNumber  Int         @default(1)
+  status          QuoteStatus @default(DRAFT)
+  dateCreated     DateTime    @default(now())
+  dateSubmitted   DateTime?
+  totalValue      Decimal?    @db.Decimal(12, 2)
+  marginPercentage Decimal?   @db.Decimal(5, 2)
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  quoteLines QuoteLine[]
+
+  @@map("quotes")
+}
+
+enum QuoteStatus {
+  DRAFT
+  SUBMITTED
+  ACCEPTED
+  DECLINED
+  REVISED
+}
+
+model QuoteLine {
+  id          String  @id @default(cuid())
+  quoteId     String
+  productId   String?
+  description String
+
+  // Cost breakdown
+  labourHours    Decimal? @db.Decimal(10, 2)
+  labourRate     Decimal? @db.Decimal(10, 2)
+  labourCost     Decimal? @db.Decimal(12, 2)
+  materialCost   Decimal? @db.Decimal(12, 2)
+  subcontractCost Decimal? @db.Decimal(12, 2)
+  plantCost      Decimal? @db.Decimal(12, 2)
+  overheadCost   Decimal? @db.Decimal(12, 2)
+  lineTotal      Decimal? @db.Decimal(12, 2)
+  marginPercent  Decimal? @db.Decimal(5, 2)
+  lineTotalWithMargin Decimal? @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  quote   Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@map("quote_lines")
+}
+
+// ============================================================
+// PURCHASE ORDERS
+// ============================================================
+
+model PurchaseOrder {
+  id               String   @id @default(cuid())
+  poNumber         String   @unique
+  projectId        String
+  supplierId       String?
+  status           POStatus @default(DRAFT)
+  dateRaised       DateTime @default(now())
+  dateSent         DateTime?
+  expectedDelivery DateTime?
+  totalValue       Decimal? @db.Decimal(12, 2)
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  project  Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  supplier Supplier?          @relation(fields: [supplierId], references: [id])
+  poLines  PurchaseOrderLine[]
+
+  @@map("purchase_orders")
+}
+
+enum POStatus {
+  DRAFT
+  SENT
+  PARTIALLY_RECEIVED
+  COMPLETE
+  CANCELLED
+}
+
+model PurchaseOrderLine {
+  id          String  @id @default(cuid())
+  poId        String
+  productId   String?
+  description String
+  quantity    Int     @default(1)
+  unitCost    Decimal? @db.Decimal(12, 2)
+  totalCost   Decimal? @db.Decimal(12, 2)
+  received    Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  purchaseOrder PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  product       Product?      @relation(fields: [productId], references: [id])
+
+  @@map("purchase_order_lines")
+}
+
+// ============================================================
+// DOCUMENTS
+// ============================================================
+
+model Document {
+  id            String       @id @default(cuid())
+  projectId     String
+  productId     String?
+  filename      String
+  filePath      String
+  fileSize      Int?
+  documentType  DocumentType @default(OTHER)
+  description   String?
+  uploadedBy    String?
+  uploadedAt    DateTime     @default(now())
+
+  // Relations
+  project Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@map("documents")
+}
+
+enum DocumentType {
+  DRAWING
+  SPECIFICATION
+  CERTIFICATE
+  TEST_REPORT
+  PHOTO
+  CORRESPONDENCE
+  OTHER
+}
