@@ -12,6 +12,7 @@ import {
   Users,
   Truck,
   BarChart3,
+  UsersRound,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react"
@@ -25,6 +26,7 @@ const navigation = [
   { name: "Purchasing", href: "/purchasing", icon: ShoppingCart },
   { name: "Customers", href: "/customers", icon: Users },
   { name: "Suppliers", href: "/suppliers", icon: Truck },
+  { name: "Team", href: "/team", icon: UsersRound },
   { name: "Reports", href: "/reports", icon: BarChart3 },
 ]
 
