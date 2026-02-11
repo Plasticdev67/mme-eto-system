@@ -17,6 +17,7 @@
     "seed": "npx tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "^7.3.0",
     "@tanstack/react-table": "^8.21.3",
     "class-variance-authority": "^0.7.1",
@@ -27,6 +28,7 @@
     "lucide-react": "^0.563.0",
     "next": "15.5.12",
     "next-auth": "^5.0.0-beta.30",
+    "pg": "^8.18.0",
     "prisma": "^7.3.0",
     "radix-ui": "^1.4.3",
     "react": "19.1.0",
@@ -39,6 +41,7 @@
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.16.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

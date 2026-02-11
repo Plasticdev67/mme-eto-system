@@ -1,8 +1,20 @@
-import { PrismaClient } from "../src/generated/prisma"
+import { config } from "dotenv"
+config()
 
-const prisma = new PrismaClient()
+async function loadPrisma() {
+  const pg = await import("pg")
+  const adapterMod = await import("@prisma/adapter-pg")
+  const mod = await import("../src/generated/prisma/client.js")
+
+  const pool = new pg.default.Pool({ connectionString: process.env.DATABASE_URL })
+  const adapter = new adapterMod.PrismaPg(pool)
+  return new mod.PrismaClient({ adapter })
+}
+
+let prisma: any
 
 async function main() {
+  prisma = await loadPrisma()
   console.log("Seeding database...")
 
   // Clean existing data
