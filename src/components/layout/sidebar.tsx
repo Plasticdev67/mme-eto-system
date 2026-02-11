@@ -12,11 +12,10 @@ import {
   Users,
   Truck,
   BarChart3,
-  Settings,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react"
-import { useState } from "react"
+import { useLayout } from "./layout-context"
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -31,7 +30,7 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname()
-  const [collapsed, setCollapsed] = useState(false)
+  const { collapsed, toggleCollapsed } = useLayout()
 
   return (
     <aside
@@ -76,6 +75,7 @@ export function Sidebar() {
                   ? "bg-blue-50 text-blue-700"
                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
               )}
+              title={collapsed ? item.name : undefined}
             >
               <item.icon className={cn("h-5 w-5 shrink-0", isActive ? "text-blue-600" : "text-gray-400")} />
               {!collapsed && <span>{item.name}</span>}
@@ -87,7 +87,7 @@ export function Sidebar() {
       {/* Collapse toggle */}
       <div className="absolute bottom-4 left-0 right-0 px-3">
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={toggleCollapsed}
           className="flex w-full items-center justify-center rounded-lg p-2 text-gray-400 hover:bg-gray-50 hover:text-gray-600"
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}

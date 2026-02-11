@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Search } from "lucide-react"
+import { useRef } from "react"
 
 const departments = ["ALL", "PLANNING", "DESIGN", "PRODUCTION", "INSTALLATION", "REVIEW", "COMPLETE"]
 const productionStages = [
@@ -18,6 +19,7 @@ function prettify(val: string) {
 export function TrackerFilters({ users }: { users: { id: string; name: string }[] }) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function updateFilter(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString())
@@ -27,6 +29,11 @@ export function TrackerFilters({ users }: { users: { id: string; name: string }[
       params.set(key, value)
     }
     router.push(`/tracker?${params.toString()}`)
+  }
+
+  function handleSearchChange(value: string) {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    timeoutRef.current = setTimeout(() => updateFilter("search", value), 300)
   }
 
   const selectClass = "rounded-lg border border-border bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -39,10 +46,7 @@ export function TrackerFilters({ users }: { users: { id: string; name: string }[
           placeholder="Search products, projects..."
           className="w-72 pl-9 text-sm"
           defaultValue={searchParams.get("search") || ""}
-          onChange={(e) => {
-            const timeout = setTimeout(() => updateFilter("search", e.target.value), 300)
-            return () => clearTimeout(timeout)
-          }}
+          onChange={(e) => handleSearchChange(e.target.value)}
         />
       </div>
 
@@ -51,7 +55,6 @@ export function TrackerFilters({ users }: { users: { id: string; name: string }[
         value={searchParams.get("department") || "ALL"}
         onChange={(e) => updateFilter("department", e.target.value)}
       >
-        <option value="ALL" disabled>Department</option>
         {departments.map((d) => (
           <option key={d} value={d}>{prettify(d)}</option>
         ))}
@@ -62,7 +65,6 @@ export function TrackerFilters({ users }: { users: { id: string; name: string }[
         value={searchParams.get("productionStage") || "ALL"}
         onChange={(e) => updateFilter("productionStage", e.target.value)}
       >
-        <option value="ALL" disabled>Production Stage</option>
         {productionStages.map((s) => (
           <option key={s} value={s}>{prettify(s)}</option>
         ))}

@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Search } from "lucide-react"
+import { useRef } from "react"
 
 const statuses = ["ALL", "OPPORTUNITY", "QUOTATION", "DESIGN", "MANUFACTURE", "INSTALLATION", "REVIEW", "COMPLETE"]
 const salesStages = ["ALL", "OPPORTUNITY", "QUOTED", "ORDER"]
@@ -16,6 +17,7 @@ function prettify(val: string) {
 export function ProjectFilters() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function updateFilter(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString())
@@ -27,6 +29,13 @@ export function ProjectFilters() {
     router.push(`/projects?${params.toString()}`)
   }
 
+  function handleSearchChange(value: string) {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    timeoutRef.current = setTimeout(() => updateFilter("search", value), 300)
+  }
+
+  const selectClass = "rounded-lg border border-border bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div className="relative">
@@ -35,15 +44,12 @@ export function ProjectFilters() {
           placeholder="Search projects..."
           className="w-64 pl-9 text-sm"
           defaultValue={searchParams.get("search") || ""}
-          onChange={(e) => {
-            const timeout = setTimeout(() => updateFilter("search", e.target.value), 300)
-            return () => clearTimeout(timeout)
-          }}
+          onChange={(e) => handleSearchChange(e.target.value)}
         />
       </div>
 
       <select
-        className="rounded-lg border border-border bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className={selectClass}
         value={searchParams.get("status") || "ALL"}
         onChange={(e) => updateFilter("status", e.target.value)}
       >
@@ -53,7 +59,7 @@ export function ProjectFilters() {
       </select>
 
       <select
-        className="rounded-lg border border-border bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className={selectClass}
         value={searchParams.get("salesStage") || "ALL"}
         onChange={(e) => updateFilter("salesStage", e.target.value)}
       >
@@ -63,7 +69,7 @@ export function ProjectFilters() {
       </select>
 
       <select
-        className="rounded-lg border border-border bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className={selectClass}
         value={searchParams.get("workStream") || "ALL"}
         onChange={(e) => updateFilter("workStream", e.target.value)}
       >

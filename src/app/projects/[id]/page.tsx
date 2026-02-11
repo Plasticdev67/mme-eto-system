@@ -25,6 +25,7 @@ import {
   getRagTextColor,
 } from "@/lib/utils"
 import { ProductStatusActions } from "@/components/projects/product-status-actions"
+import { AddProductDialog } from "@/components/projects/add-product-dialog"
 
 async function getProject(id: string) {
   const project = await prisma.project.findUnique({
@@ -37,7 +38,7 @@ async function getProject(id: string) {
           designer: { select: { name: true } },
           coordinator: { select: { name: true } },
         },
-        orderBy: { productJobNumber: "asc" },
+        orderBy: { createdAt: "asc" },
       },
       _count: {
         select: {
@@ -58,7 +59,17 @@ export default async function ProjectDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const project = await getProject(id)
+  const [project, catalogueItems, users] = await Promise.all([
+    getProject(id),
+    prisma.productCatalogue.findMany({
+      orderBy: { partCode: "asc" },
+      select: { id: true, partCode: true, description: true },
+    }),
+    prisma.user.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ])
 
   if (!project) {
     notFound()
@@ -173,16 +184,23 @@ export default async function ProjectDetailPage({
 
         {/* Products Tab */}
         <TabsContent value="products" className="space-y-4">
-          {/* Department breakdown */}
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(departmentCounts).map(([dept, count]) => (
-              <div key={dept} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5">
-                <Badge variant="secondary" className={getDepartmentColor(dept)}>
-                  {prettifyEnum(dept)}
-                </Badge>
-                <span className="text-sm font-medium text-gray-700">{count}</span>
-              </div>
-            ))}
+          {/* Department breakdown + Add Product */}
+          <div className="flex items-center justify-between">
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(departmentCounts).map(([dept, count]) => (
+                <div key={dept} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5">
+                  <Badge variant="secondary" className={getDepartmentColor(dept)}>
+                    {prettifyEnum(dept)}
+                  </Badge>
+                  <span className="text-sm font-medium text-gray-700">{count}</span>
+                </div>
+              ))}
+            </div>
+            <AddProductDialog
+              projectId={project.id}
+              catalogueItems={catalogueItems}
+              users={users}
+            />
           </div>
 
           {/* Products table */}

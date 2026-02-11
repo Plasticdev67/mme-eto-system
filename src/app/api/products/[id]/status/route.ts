@@ -8,13 +8,14 @@ export async function PATCH(
   const { id } = await params
   const body = await request.json()
 
+  const data: Record<string, unknown> = {}
+  if (body.currentDepartment !== undefined) data.currentDepartment = body.currentDepartment
+  if (body.productionStatus !== undefined) data.productionStatus = body.productionStatus
+  if (body.currentOperationalStatus !== undefined) data.currentOperationalStatus = body.currentOperationalStatus
+
   const product = await prisma.product.update({
     where: { id },
-    data: {
-      currentDepartment: body.currentDepartment,
-      productionStatus: body.productionStatus,
-      currentOperationalStatus: body.currentOperationalStatus,
-    },
+    data,
   })
 
   return NextResponse.json(product)

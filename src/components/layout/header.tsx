@@ -2,8 +2,31 @@
 
 import { Input } from "@/components/ui/input"
 import { Search, Bell } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { useRef, useState } from "react"
 
 export function Header() {
+  const router = useRouter()
+  const [searchValue, setSearchValue] = useState("")
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function handleSearch(value: string) {
+    setSearchValue(value)
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    timeoutRef.current = setTimeout(() => {
+      if (value.trim()) {
+        router.push(`/projects?search=${encodeURIComponent(value.trim())}`)
+      }
+    }, 400)
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter" && searchValue.trim()) {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      router.push(`/projects?search=${encodeURIComponent(searchValue.trim())}`)
+    }
+  }
+
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-white/95 px-6 backdrop-blur">
       <div className="flex items-center gap-4">
@@ -12,6 +35,9 @@ export function Header() {
           <Input
             placeholder="Search projects, products, customers..."
             className="w-80 pl-9 text-sm"
+            value={searchValue}
+            onChange={(e) => handleSearch(e.target.value)}
+            onKeyDown={handleKeyDown}
           />
         </div>
       </div>
