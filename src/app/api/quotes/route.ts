@@ -5,8 +5,9 @@ export async function GET() {
   const quotes = await prisma.quote.findMany({
     orderBy: { updatedAt: "desc" },
     include: {
+      customer: { select: { id: true, name: true } },
       project: {
-        select: { id: true, projectNumber: true, name: true, customer: { select: { name: true } } },
+        select: { id: true, projectNumber: true, name: true },
       },
       createdBy: { select: { name: true } },
       _count: { select: { quoteLines: true } },
@@ -32,8 +33,10 @@ export async function POST(request: NextRequest) {
 
   const quote = await prisma.quote.create({
     data: {
-      projectId: body.projectId,
+      customerId: body.customerId,
+      projectId: body.projectId || null,
       quoteNumber: `Q-${String(nextNum).padStart(4, "0")}`,
+      subject: body.subject || null,
       notes: body.notes || null,
       createdById: body.createdById || null,
     },

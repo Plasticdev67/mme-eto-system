@@ -9,13 +9,14 @@ import { Button } from "@/components/ui/button"
 import { formatCurrency, formatDate, prettifyEnum } from "@/lib/utils"
 import { QuoteLineForm, QuoteLineRow } from "@/components/quotes/quote-line-form"
 import { QuoteStatusActions } from "@/components/quotes/quote-status-actions"
-import { ArrowLeft, FileText, Building2, User, Calendar, Hash } from "lucide-react"
+import { ArrowLeft, Building2, User, Calendar, FolderKanban } from "lucide-react"
 
 type Quote = {
   id: string
   quoteNumber: string
   revisionNumber: number
   status: string
+  subject: string | null
   dateCreated: string
   dateSubmitted: string | null
   validUntil: string | null
@@ -23,13 +24,13 @@ type Quote = {
   totalSell: string | number | null
   overallMargin: string | number | null
   notes: string | null
+  customer: { id: string; name: string }
   project: {
     id: string
     projectNumber: string
     name: string
-    customer: { name: string } | null
     products: { id: string; partCode: string; description: string; quantity: number; catalogueItemId: string | null }[]
-  }
+  } | null
   createdBy: { name: string } | null
   quoteLines: {
     id: string
@@ -149,8 +150,14 @@ export default function QuoteDetailPage() {
             </Badge>
             <span className="text-xs text-gray-400">Rev {quote.revisionNumber}</span>
           </div>
-          <p className="mt-1 text-sm text-gray-500">
-            {quote.project.projectNumber} — {quote.project.name}
+          {quote.subject && (
+            <p className="mt-1 text-sm text-gray-700">{quote.subject}</p>
+          )}
+          <p className="mt-0.5 text-sm text-gray-500">
+            {quote.customer.name}
+            {quote.project && (
+              <> — <Link href={`/projects/${quote.project.id}`} className="text-blue-600 hover:text-blue-700">{quote.project.projectNumber} {quote.project.name}</Link></>
+            )}
           </p>
         </div>
         <QuoteStatusActions
@@ -168,7 +175,23 @@ export default function QuoteDetailPage() {
               <Building2 className="h-3.5 w-3.5" /> Customer
             </div>
             <div className="text-sm font-medium text-gray-900">
-              {quote.project.customer?.name || "No customer"}
+              {quote.customer.name}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
+              <FolderKanban className="h-3.5 w-3.5" /> Project
+            </div>
+            <div className="text-sm font-medium text-gray-900">
+              {quote.project ? (
+                <Link href={`/projects/${quote.project.id}`} className="text-blue-600 hover:text-blue-700">
+                  {quote.project.projectNumber}
+                </Link>
+              ) : (
+                <span className="text-gray-400">Not linked</span>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -190,16 +213,6 @@ export default function QuoteDetailPage() {
             </div>
             <div className="text-sm font-medium text-gray-900">
               {quote.dateSubmitted ? formatDate(quote.dateSubmitted) : "Not yet"}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
-              <Calendar className="h-3.5 w-3.5" /> Valid Until
-            </div>
-            <div className="text-sm font-medium text-gray-900">
-              {quote.validUntil ? formatDate(quote.validUntil) : "Not set"}
             </div>
           </CardContent>
         </Card>

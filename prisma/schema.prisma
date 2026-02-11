@@ -57,6 +57,7 @@ model Customer {
   // Relations
   contacts  CustomerContact[]
   projects  Project[]
+  quotes    Quote[]
 
   @@map("customers")
 }
@@ -335,10 +336,12 @@ enum ProductionStage {
 
 model Quote {
   id              String      @id @default(cuid())
-  projectId       String
+  customerId      String
+  projectId       String?
   quoteNumber     String      @unique
   revisionNumber  Int         @default(1)
   status          QuoteStatus @default(DRAFT)
+  subject         String?
   dateCreated     DateTime    @default(now())
   dateSubmitted   DateTime?
   validUntil      DateTime?
@@ -351,7 +354,8 @@ model Quote {
   updatedAt       DateTime    @updatedAt
 
   // Relations
-  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  customer   Customer    @relation(fields: [customerId], references: [id])
+  project    Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
   createdBy  User?       @relation("QuoteCreator", fields: [createdById], references: [id])
   quoteLines QuoteLine[]
 

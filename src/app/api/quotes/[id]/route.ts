@@ -9,9 +9,12 @@ export async function GET(
   const quote = await prisma.quote.findUnique({
     where: { id },
     include: {
+      customer: { select: { id: true, name: true } },
       project: {
-        include: {
-          customer: true,
+        select: {
+          id: true,
+          projectNumber: true,
+          name: true,
           products: {
             select: { id: true, partCode: true, description: true, quantity: true, catalogueItemId: true },
           },
@@ -45,6 +48,7 @@ export async function PATCH(
   const data: Record<string, unknown> = {}
   if (body.status !== undefined) data.status = body.status
   if (body.notes !== undefined) data.notes = body.notes
+  if (body.subject !== undefined) data.subject = body.subject
   if (body.validUntil !== undefined) data.validUntil = body.validUntil ? new Date(body.validUntil) : null
   if (body.status === "SUBMITTED") data.dateSubmitted = new Date()
 
@@ -59,7 +63,7 @@ export async function PATCH(
     }
     data.totalCost = totalCost
     data.totalSell = totalSell
-    data.overallMargin = totalCost > 0 ? ((totalSell - totalCost) / totalSell) * 100 : 0
+    data.overallMargin = totalSell > 0 ? ((totalSell - totalCost) / totalSell) * 100 : 0
   }
 
   const quote = await prisma.quote.update({ where: { id }, data })
