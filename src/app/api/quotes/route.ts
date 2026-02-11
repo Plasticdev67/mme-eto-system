@@ -1,0 +1,43 @@
+import { prisma } from "@/lib/db"
+import { NextRequest, NextResponse } from "next/server"
+
+export async function GET() {
+  const quotes = await prisma.quote.findMany({
+    orderBy: { updatedAt: "desc" },
+    include: {
+      project: {
+        select: { id: true, projectNumber: true, name: true, customer: { select: { name: true } } },
+      },
+      createdBy: { select: { name: true } },
+      _count: { select: { quoteLines: true } },
+    },
+  })
+  return NextResponse.json(quotes)
+}
+
+export async function POST(request: NextRequest) {
+  const body = await request.json()
+
+  // Auto-generate quote number: Q-XXXXXX
+  const lastQuote = await prisma.quote.findFirst({
+    orderBy: { quoteNumber: "desc" },
+    select: { quoteNumber: true },
+  })
+
+  let nextNum = 1001
+  if (lastQuote) {
+    const match = lastQuote.quoteNumber.match(/Q-(\d+)/)
+    if (match) nextNum = parseInt(match[1], 10) + 1
+  }
+
+  const quote = await prisma.quote.create({
+    data: {
+      projectId: body.projectId,
+      quoteNumber: `Q-${String(nextNum).padStart(4, "0")}`,
+      notes: body.notes || null,
+      createdById: body.createdById || null,
+    },
+  })
+
+  return NextResponse.json(quote, { status: 201 })
+}

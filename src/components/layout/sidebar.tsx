@@ -13,6 +13,7 @@ import {
   Truck,
   BarChart3,
   UsersRound,
+  BookOpen,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react"
@@ -26,6 +27,7 @@ const navigation = [
   { name: "Purchasing", href: "/purchasing", icon: ShoppingCart },
   { name: "Customers", href: "/customers", icon: Users },
   { name: "Suppliers", href: "/suppliers", icon: Truck },
+  { name: "Catalogue", href: "/catalogue", icon: BookOpen },
   { name: "Team", href: "/team", icon: UsersRound },
   { name: "Reports", href: "/reports", icon: BarChart3 },
 ]
