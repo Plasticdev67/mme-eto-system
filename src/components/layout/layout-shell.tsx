@@ -2,11 +2,18 @@
 
 import { cn } from "@/lib/utils"
 import { useLayout } from "./layout-context"
+import { usePathname } from "next/navigation"
 import { Sidebar } from "./sidebar"
 import { Header } from "./header"
 
 export function LayoutShell({ children }: { children: React.ReactNode }) {
   const { collapsed } = useLayout()
+  const pathname = usePathname()
+
+  // Login page — no sidebar/header
+  if (pathname === "/login") {
+    return <>{children}</>
+  }
 
   return (
     <div className="flex min-h-screen">

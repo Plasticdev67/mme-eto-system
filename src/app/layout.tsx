@@ -4,6 +4,7 @@ import "./globals.css";
 import { LayoutProvider } from "@/components/layout/layout-context";
 import { LayoutShell } from "@/components/layout/layout-shell";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { SessionProvider } from "@/components/session-provider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -23,11 +24,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} font-sans antialiased`}>
-        <TooltipProvider>
-          <LayoutProvider>
-            <LayoutShell>{children}</LayoutShell>
-          </LayoutProvider>
-        </TooltipProvider>
+        <SessionProvider>
+          <TooltipProvider>
+            <LayoutProvider>
+              <LayoutShell>{children}</LayoutShell>
+            </LayoutProvider>
+          </TooltipProvider>
+        </SessionProvider>
       </body>
     </html>
   );
