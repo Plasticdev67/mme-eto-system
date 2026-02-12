@@ -10,17 +10,24 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
   const { collapsed } = useLayout()
   const pathname = usePathname()
 
-  // Login page — no sidebar/header
-  if (pathname === "/login") {
+  // Login page and portal — no sidebar/header
+  if (pathname === "/login" || pathname.startsWith("/portal")) {
     return <>{children}</>
   }
 
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      <div className={cn("flex-1 transition-all duration-200", collapsed ? "pl-16" : "pl-60")}>
+      <div className={cn(
+        "flex-1 transition-all duration-200",
+        // Desktop: offset for sidebar width
+        "md:pl-60",
+        collapsed ? "md:pl-16" : "md:pl-60",
+        // Mobile: no left padding (sidebar is overlay)
+        "pl-0"
+      )}>
         <Header />
-        <main className="p-6">{children}</main>
+        <main className="p-3 sm:p-4 md:p-6">{children}</main>
       </div>
     </div>
   )

@@ -34,24 +34,24 @@ export function Header() {
   const initials = userName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-white/95 px-6 backdrop-blur">
-      <div className="flex items-center gap-4">
+    <header className="sticky top-0 z-30 flex h-14 md:h-16 items-center justify-between border-b border-border bg-white/95 px-3 sm:px-4 md:px-6 backdrop-blur">
+      <div className="flex items-center gap-4 ml-10 md:ml-0">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
-            placeholder="Search projects, products, customers..."
-            className="w-80 pl-9 text-sm"
+            placeholder="Search projects..."
+            className="w-40 sm:w-60 md:w-80 pl-9 text-sm"
             value={searchValue}
             onChange={(e) => handleSearch(e.target.value)}
             onKeyDown={handleKeyDown}
           />
         </div>
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
         <button className="relative rounded-lg p-2 text-gray-400 hover:bg-gray-50 hover:text-gray-600">
           <Bell className="h-5 w-5" />
         </button>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-xs font-medium text-blue-700">
             {initials}
           </div>

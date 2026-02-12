@@ -4,8 +4,8 @@ import { getToken } from "next-auth/jwt"
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  // Allow auth API routes and static files always
-  if (pathname.startsWith("/api/auth")) {
+  // Allow auth API routes, portal routes, and static files always
+  if (pathname.startsWith("/api/auth") || pathname.startsWith("/portal")) {
     return NextResponse.next()
   }
 

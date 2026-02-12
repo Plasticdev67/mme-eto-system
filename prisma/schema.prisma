@@ -57,9 +57,10 @@ model Customer {
   updatedAt     DateTime     @updatedAt
 
   // Relations
-  contacts  CustomerContact[]
-  projects  Project[]
-  quotes    Quote[]
+  contacts      CustomerContact[]
+  projects      Project[]
+  quotes        Quote[]
+  portalTokens  CustomerPortalToken[]
 
   @@map("customers")
 }
@@ -202,6 +203,8 @@ model Project {
   subContracts    SubContractorWork[]
   costCategories  ProjectCostCategory[]
   salesInvoices   SalesInvoice[]
+  variations      Variation[]
+  portalTokens    CustomerPortalToken[]
 
   @@map("projects")
 }
@@ -796,4 +799,91 @@ enum InvoiceStatus {
   OVERDUE
   PAID
   DISPUTED
+}
+
+// ============================================================
+// VARIATIONS / CHANGE ORDERS
+// ============================================================
+
+model Variation {
+  id              String          @id @default(cuid())
+  variationNumber String          @unique
+  projectId       String
+  title           String
+  description     String?
+  status          VariationStatus @default(PENDING)
+  type            VariationType   @default(CLIENT_INSTRUCTION)
+  costImpact      Decimal?        @db.Decimal(12, 2)
+  valueImpact     Decimal?        @db.Decimal(12, 2)
+  dateRaised      DateTime        @default(now())
+  dateApproved    DateTime?
+  dateClosed      DateTime?
+  raisedBy        String?
+  approvedBy      String?
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("variations")
+}
+
+enum VariationStatus {
+  PENDING
+  SUBMITTED
+  APPROVED
+  REJECTED
+  IMPLEMENTED
+}
+
+enum VariationType {
+  CLIENT_INSTRUCTION
+  DESIGN_CHANGE
+  SITE_CONDITION
+  SCOPE_CHANGE
+  OMISSION
+  ADDITION
+}
+
+// ============================================================
+// AUDIT TRAIL
+// ============================================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  userName  String?
+  action    String   // CREATE, UPDATE, DELETE
+  entity    String   // Project, Quote, Product, etc.
+  entityId  String
+  field     String?
+  oldValue  String?
+  newValue  String?
+  metadata  String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================================
+// CUSTOMER PORTAL ACCESS
+// ============================================================
+
+model CustomerPortalToken {
+  id         String    @id @default(cuid())
+  customerId String
+  projectId  String?
+  token      String    @unique
+  expiresAt  DateTime
+  lastUsed   DateTime?
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  project  Project?  @relation(fields: [projectId], references: [id])
+
+  @@map("customer_portal_tokens")
 }

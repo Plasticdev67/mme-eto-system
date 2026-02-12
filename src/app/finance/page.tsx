@@ -125,6 +125,11 @@ export default async function FinanceDashboard() {
               Nominal Codes ({nominalCodes.length})
             </Badge>
           </Link>
+          <Link href="/finance/exports">
+            <Badge variant="outline" className="cursor-pointer hover:bg-gray-50 px-3 py-1.5">
+              Sage Export
+            </Badge>
+          </Link>
         </div>
       </div>
 

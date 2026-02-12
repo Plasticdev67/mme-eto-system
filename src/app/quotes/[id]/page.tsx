@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { formatCurrency, formatDate, prettifyEnum } from "@/lib/utils"
 import { QuoteLineForm, QuoteLineRow } from "@/components/quotes/quote-line-form"
 import { QuoteStatusActions } from "@/components/quotes/quote-status-actions"
-import { ArrowLeft, Building2, User, Calendar, FolderKanban } from "lucide-react"
+import { ArrowLeft, Building2, User, Calendar, FolderKanban, Download } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 type QuoteLine = {
   id: string
@@ -180,18 +181,28 @@ export default function QuoteDetailPage() {
             )}
           </p>
         </div>
-        <QuoteStatusActions
-          quoteId={quote.id}
-          currentStatus={quote.status}
-          onStatusChange={handleStatusChange}
-          quoteSummary={{
-            quoteNumber: quote.quoteNumber,
-            subject: quote.subject,
-            customerId: quote.customer.id,
-            customerName: quote.customer.name,
-            totalSell: totalSell,
-          }}
-        />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(`/api/quotes/${quote.id}/pdf`, "_blank")}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            PDF
+          </Button>
+          <QuoteStatusActions
+            quoteId={quote.id}
+            currentStatus={quote.status}
+            onStatusChange={handleStatusChange}
+            quoteSummary={{
+              quoteNumber: quote.quoteNumber,
+              subject: quote.subject,
+              customerId: quote.customer.id,
+              customerName: quote.customer.name,
+              totalSell: totalSell,
+            }}
+          />
+        </div>
       </div>
 
       {/* Quote Info Cards */}

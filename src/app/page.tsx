@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { formatDate, formatCurrency, getProjectStatusColor, getSalesStageColor, getDepartmentColor, prettifyEnum, calculateScheduleRag, getRagColor } from "@/lib/utils"
+import { DashboardCharts } from "@/components/dashboard/dashboard-charts"
 
 async function getDashboardData() {
   const [
@@ -44,6 +45,8 @@ async function getDashboardData() {
     recentQuotes,
     // New: NCR stats
     openNcrs,
+    // Monthly data
+    allProjectsForChart,
   ] = await Promise.all([
     prisma.project.count(),
     prisma.project.count({
@@ -114,6 +117,10 @@ async function getDashboardData() {
     prisma.nonConformanceReport.count({
       where: { status: { in: ["OPEN", "INVESTIGATING"] } },
     }),
+    // Monthly project data (last 6 months)
+    prisma.project.findMany({
+      select: { createdAt: true, salesStage: true, projectStatus: true },
+    }),
   ])
 
   // Calculate pipeline values
@@ -126,6 +133,43 @@ async function getDashboardData() {
     else if (p.salesStage === "QUOTED") quotedValue += value
     else if (p.salesStage === "ORDER") orderValue += value
   }
+
+  // Build monthly chart data (last 6 months)
+  const now = new Date()
+  const monthlyData = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1)
+    const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0)
+    const label = d.toLocaleDateString("en-GB", { month: "short", year: "2-digit" })
+
+    const monthProjects = allProjectsForChart.filter((p) => {
+      const created = new Date(p.createdAt)
+      return created >= d && created <= monthEnd
+    })
+
+    return {
+      month: label,
+      quoted: monthProjects.filter((p) => p.salesStage === "QUOTED" || p.salesStage === "ORDER").length,
+      ordered: monthProjects.filter((p) => p.salesStage === "ORDER").length,
+      completed: monthProjects.filter((p) => p.projectStatus === "COMPLETE").length,
+    }
+  })
+
+  // Chart-ready data
+  const chartProjectsByStatus = projectsByStatus.map((g) => ({
+    status: g.projectStatus,
+    count: g._count.id,
+  }))
+
+  const chartDepartmentCounts = departmentCounts.map((d) => ({
+    department: d.currentDepartment,
+    count: d._count.id,
+  }))
+
+  const chartPipelineData = [
+    { stage: "Opportunity", value: opportunityValue, count: pipelineProjects.filter((p) => p.salesStage === "OPPORTUNITY").length },
+    { stage: "Quoted", value: quotedValue, count: pipelineProjects.filter((p) => p.salesStage === "QUOTED").length },
+    { stage: "On Order", value: orderValue, count: pipelineProjects.filter((p) => p.salesStage === "ORDER").length },
+  ]
 
   return {
     totalProjects,
@@ -142,6 +186,12 @@ async function getDashboardData() {
     criticalProjects,
     recentQuotes,
     openNcrs,
+    charts: {
+      projectsByStatus: chartProjectsByStatus,
+      departmentCounts: chartDepartmentCounts,
+      pipelineData: chartPipelineData,
+      monthlyData,
+    },
   }
 }
 
@@ -338,6 +388,14 @@ export default async function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Charts */}
+      <DashboardCharts
+        projectsByStatus={data.charts.projectsByStatus}
+        departmentCounts={data.charts.departmentCounts}
+        pipelineData={data.charts.pipelineData}
+        monthlyData={data.charts.monthlyData}
+      />
 
       {/* Main content grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

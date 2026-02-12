@@ -78,6 +78,9 @@ async function getProject(id: string) {
           product: { select: { id: true, partCode: true, description: true } },
         },
       },
+      variations: {
+        orderBy: { dateRaised: "desc" },
+      },
       _count: {
         select: {
           products: true,
@@ -85,6 +88,7 @@ async function getProject(id: string) {
           purchaseOrders: true,
           documents: true,
           ncrs: true,
+          variations: true,
         },
       },
     },
@@ -320,6 +324,7 @@ export default async function ProjectDetailPage({
           <TabsTrigger value="products">Products ({project._count.products})</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="ncrs">NCRs ({project._count.ncrs})</TabsTrigger>
+          <TabsTrigger value="variations">Variations ({project._count.variations})</TabsTrigger>
           <TabsTrigger value="financials">Financials</TabsTrigger>
           <TabsTrigger value="documents">Documents ({project._count.documents})</TabsTrigger>
         </TabsList>
@@ -632,6 +637,99 @@ export default async function ProjectDetailPage({
                   </tbody>
                 </table>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Variations Tab */}
+        <TabsContent value="variations" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Variations & Change Orders</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {project.variations.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-t border-border bg-gray-50">
+                        <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">No.</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Title</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium uppercase text-gray-500">Type</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium uppercase text-gray-500">Status</th>
+                        <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Cost Impact</th>
+                        <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Value Impact</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Raised</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {project.variations.map((v) => {
+                        const statusColors: Record<string, string> = {
+                          PENDING: "bg-gray-100 text-gray-700",
+                          SUBMITTED: "bg-blue-100 text-blue-700",
+                          APPROVED: "bg-green-100 text-green-700",
+                          REJECTED: "bg-red-100 text-red-700",
+                          IMPLEMENTED: "bg-purple-100 text-purple-700",
+                        }
+                        const typeColors: Record<string, string> = {
+                          CLIENT_INSTRUCTION: "bg-blue-50 text-blue-700",
+                          DESIGN_CHANGE: "bg-purple-50 text-purple-700",
+                          SITE_CONDITION: "bg-amber-50 text-amber-700",
+                          SCOPE_CHANGE: "bg-orange-50 text-orange-700",
+                          OMISSION: "bg-red-50 text-red-700",
+                          ADDITION: "bg-green-50 text-green-700",
+                        }
+                        return (
+                          <tr key={v.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-2 font-mono text-xs font-semibold">{v.variationNumber}</td>
+                            <td className="px-4 py-2">
+                              <div className="font-medium text-gray-900">{v.title}</div>
+                              {v.description && <div className="text-xs text-gray-500 truncate max-w-xs">{v.description}</div>}
+                            </td>
+                            <td className="px-4 py-2 text-center">
+                              <Badge variant="secondary" className={`text-[10px] ${typeColors[v.type] || ""}`}>
+                                {prettifyEnum(v.type)}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-2 text-center">
+                              <Badge variant="secondary" className={`text-[10px] ${statusColors[v.status] || ""}`}>
+                                {prettifyEnum(v.status)}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-2 text-right font-mono text-xs">
+                              {v.costImpact ? formatCurrency(Number(v.costImpact)) : "—"}
+                            </td>
+                            <td className="px-4 py-2 text-right font-mono text-xs">
+                              {v.valueImpact ? formatCurrency(Number(v.valueImpact)) : "—"}
+                            </td>
+                            <td className="px-4 py-2 text-xs text-gray-500">{formatDate(v.dateRaised)}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="px-4 py-12 text-center text-sm text-gray-500">
+                  No variations raised on this project.
+                </div>
+              )}
+              {/* Variation totals */}
+              {project.variations.length > 0 && (
+                <div className="border-t border-border px-4 py-3 bg-gray-50 flex items-center gap-6">
+                  <div className="text-xs text-gray-500">
+                    <strong>{project.variations.length}</strong> variation{project.variations.length !== 1 ? "s" : ""}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Cost Impact: <strong className="font-mono">{formatCurrency(project.variations.reduce((s, v) => s + Number(v.costImpact || 0), 0))}</strong>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Value Impact: <strong className="font-mono">{formatCurrency(project.variations.reduce((s, v) => s + Number(v.valueImpact || 0), 0))}</strong>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
