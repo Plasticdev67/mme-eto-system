@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import {
   LayoutDashboard,
   FolderKanban,
+  Columns3,
   ListChecks,
   FileText,
   ShoppingCart,
@@ -21,6 +22,7 @@ import { useLayout } from "./layout-context"
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Board", href: "/board", icon: Columns3 },
   { name: "Projects", href: "/projects", icon: FolderKanban },
   { name: "Tracker", href: "/tracker", icon: ListChecks },
   { name: "Quotes", href: "/quotes", icon: FileText },

@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/db"
 import { NextRequest, NextResponse } from "next/server"
+import {
+  calculateCostTotal,
+  calculateSellPrice,
+  MINIMUM_MARGIN_FLOOR,
+} from "@/lib/quote-calculations"
 
 export async function POST(
   request: NextRequest,
@@ -8,22 +13,23 @@ export async function POST(
   const { id: quoteId } = await params
   const body = await request.json()
 
-  // Calculate derived fields
-  const labourHours = parseFloat(body.labourHours) || 0
-  const labourRate = parseFloat(body.labourRate) || 0
-  const labourCost = labourHours * labourRate
-  const materialCost = parseFloat(body.materialCost) || 0
-  const subcontractCost = parseFloat(body.subcontractCost) || 0
-  const plantCost = parseFloat(body.plantCost) || 0
   const quantity = parseInt(body.quantity) || 1
-
-  const directCost = (labourCost + materialCost + subcontractCost + plantCost) * quantity
-  const overheadPercent = parseFloat(body.overheadPercent) || 0
-  const overheadCost = directCost * (overheadPercent / 100)
-  const costTotal = directCost + overheadCost
-
+  const unitCost = parseFloat(body.unitCost) || 0
   const marginPercent = parseFloat(body.marginPercent) || 0
-  const sellPrice = marginPercent < 100 ? costTotal / (1 - marginPercent / 100) : costTotal
+
+  // Margin floor check
+  if (marginPercent < MINIMUM_MARGIN_FLOOR && !body.marginOverride) {
+    return NextResponse.json(
+      {
+        error: "MARGIN_BELOW_FLOOR",
+        message: `Margin ${marginPercent}% is below the ${MINIMUM_MARGIN_FLOOR}% minimum. Set marginOverride to true to proceed.`,
+      },
+      { status: 422 }
+    )
+  }
+
+  const costTotal = calculateCostTotal(unitCost, quantity)
+  const sellPrice = calculateSellPrice(costTotal, marginPercent)
 
   const line = await prisma.quoteLine.create({
     data: {
@@ -31,22 +37,19 @@ export async function POST(
       productId: body.productId || null,
       catalogueItemId: body.catalogueItemId || null,
       description: body.description,
+      dimensions: body.dimensions || null,
       quantity,
-      labourHours,
-      labourRate,
-      labourCost,
-      materialCost,
-      subcontractCost,
-      plantCost,
-      overheadPercent,
-      overheadCost,
+      units: body.units || "nr",
+      unitCost,
       costTotal,
       marginPercent,
       sellPrice,
+      isOptional: body.isOptional || false,
+      sortOrder: body.sortOrder || 0,
+      marginOverride: body.marginOverride || false,
     },
   })
 
-  // Recalculate quote totals
   await recalcQuoteTotals(quoteId)
 
   return NextResponse.json(line, { status: 201 })
@@ -59,10 +62,10 @@ export async function GET(
   const { id: quoteId } = await params
   const lines = await prisma.quoteLine.findMany({
     where: { quoteId },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ isOptional: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
     include: {
       product: { select: { partCode: true, description: true } },
-      catalogueItem: { select: { partCode: true, description: true } },
+      catalogueItem: { select: { partCode: true, description: true, guideUnitCost: true } },
     },
   })
   return NextResponse.json(lines)
@@ -70,13 +73,19 @@ export async function GET(
 
 async function recalcQuoteTotals(quoteId: string) {
   const lines = await prisma.quoteLine.findMany({ where: { quoteId } })
+
   let totalCost = 0
   let totalSell = 0
+
   for (const line of lines) {
-    totalCost += Number(line.costTotal || 0)
-    totalSell += Number(line.sellPrice || 0)
+    if (!line.isOptional) {
+      totalCost += Number(line.costTotal || 0)
+      totalSell += Number(line.sellPrice || 0)
+    }
   }
-  const overallMargin = totalSell > 0 ? ((totalSell - totalCost) / totalSell) * 100 : 0
+
+  const overallMargin =
+    totalSell > 0 ? ((totalSell - totalCost) / totalSell) * 100 : 0
 
   await prisma.quote.update({
     where: { id: quoteId },

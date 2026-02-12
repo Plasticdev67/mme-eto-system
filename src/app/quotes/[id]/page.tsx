@@ -1,15 +1,31 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter, useParams } from "next/navigation"
+import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { formatCurrency, formatDate, prettifyEnum } from "@/lib/utils"
 import { QuoteLineForm, QuoteLineRow } from "@/components/quotes/quote-line-form"
 import { QuoteStatusActions } from "@/components/quotes/quote-status-actions"
 import { ArrowLeft, Building2, User, Calendar, FolderKanban } from "lucide-react"
+
+type QuoteLine = {
+  id: string
+  description: string
+  dimensions: string | null
+  quantity: number
+  units: string | null
+  unitCost: string | number | null
+  costTotal: string | number | null
+  marginPercent: string | number | null
+  sellPrice: string | number | null
+  isOptional: boolean
+  marginOverride: boolean
+  sortOrder: number
+  product?: { partCode: string; description: string } | null
+  catalogueItem?: { partCode: string; description: string; guideUnitCost: string | number | null } | null
+}
 
 type Quote = {
   id: string
@@ -32,35 +48,16 @@ type Quote = {
     products: { id: string; partCode: string; description: string; quantity: number; catalogueItemId: string | null }[]
   } | null
   createdBy: { name: string } | null
-  quoteLines: {
-    id: string
-    description: string
-    quantity: number
-    labourHours: string | number | null
-    labourRate: string | number | null
-    labourCost: string | number | null
-    materialCost: string | number | null
-    subcontractCost: string | number | null
-    plantCost: string | number | null
-    overheadPercent: string | number | null
-    overheadCost: string | number | null
-    costTotal: string | number | null
-    marginPercent: string | number | null
-    sellPrice: string | number | null
-    product?: { partCode: string; description: string } | null
-    catalogueItem?: { partCode: string; description: string } | null
-  }[]
+  quoteLines: QuoteLine[]
 }
 
 type CatalogueItem = {
   id: string
   partCode: string
   description: string
-  guideMaterialCost: string | number | null
-  guideLabourHours: string | number | null
-  guideLabourRate: string | number | null
-  guideSubcontractCost: string | number | null
-  guidePlantCost: string | number | null
+  guideUnitCost: string | number | null
+  guideMarginPercent: string | number | null
+  defaultUnits: string | null
 }
 
 function getQuoteStatusColor(status: string) {
@@ -75,7 +72,6 @@ function getQuoteStatusColor(status: string) {
 }
 
 export default function QuoteDetailPage() {
-  const router = useRouter()
   const params = useParams()
   const quoteId = params.id as string
 
@@ -103,7 +99,7 @@ export default function QuoteDetailPage() {
     Promise.all([loadQuote(), loadCatalogue()]).then(() => setLoading(false))
   }, [quoteId])
 
-  function handleLineAdded() {
+  function handleLineChanged() {
     loadQuote()
   }
 
@@ -134,6 +130,30 @@ export default function QuoteDetailPage() {
   const totalSell = Number(quote.totalSell) || 0
   const overallMargin = Number(quote.overallMargin) || 0
   const profit = totalSell - totalCost
+  const isDraft = quote.status === "DRAFT"
+
+  // Split lines into main and optional
+  const mainLines = quote.quoteLines.filter((l) => !l.isOptional)
+  const optionalLines = quote.quoteLines.filter((l) => l.isOptional)
+
+  // Optional extras subtotals
+  const optionalCost = optionalLines.reduce((sum, l) => sum + Number(l.costTotal || 0), 0)
+  const optionalSell = optionalLines.reduce((sum, l) => sum + Number(l.sellPrice || 0), 0)
+
+  const tableHeaders = (
+    <tr className="border-b border-border bg-gray-50/50">
+      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Part Code</th>
+      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Description</th>
+      <th className="px-4 py-3 text-center text-xs font-medium uppercase text-gray-500">Qty</th>
+      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Units</th>
+      <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Unit Cost</th>
+      <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Cost Total</th>
+      <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Margin %</th>
+      <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Unit Sell</th>
+      <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Sell Total</th>
+      {isDraft && <th className="px-4 py-3 w-10"></th>}
+    </tr>
+  )
 
   return (
     <div className="space-y-6">
@@ -164,6 +184,13 @@ export default function QuoteDetailPage() {
           quoteId={quote.id}
           currentStatus={quote.status}
           onStatusChange={handleStatusChange}
+          quoteSummary={{
+            quoteNumber: quote.quoteNumber,
+            subject: quote.subject,
+            customerId: quote.customer.id,
+            customerName: quote.customer.name,
+            totalSell: totalSell,
+          }}
         />
       </div>
 
@@ -239,47 +266,62 @@ export default function QuoteDetailPage() {
               </div>
               <div>
                 <div className="text-xs text-gray-500 uppercase">Margin</div>
-                <div className={`text-lg font-mono font-medium ${overallMargin >= 0 ? "text-green-700" : "text-red-600"}`}>
+                <div className={`text-lg font-mono font-medium ${overallMargin >= 25 ? "text-green-700" : overallMargin >= 0 ? "text-amber-600" : "text-red-600"}`}>
                   {overallMargin.toFixed(1)}%
                 </div>
               </div>
             </div>
             <div className="text-sm text-gray-400">
-              {quote.quoteLines.length} line{quote.quoteLines.length !== 1 ? "s" : ""}
+              {mainLines.length} line{mainLines.length !== 1 ? "s" : ""}
+              {optionalLines.length > 0 && ` + ${optionalLines.length} optional`}
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Line Items Table */}
+      {/* Main Line Items */}
       <Card>
         <CardContent className="p-0">
+          <div className="px-4 py-3 border-b border-border">
+            <h3 className="text-sm font-medium text-gray-900">Line Items</h3>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-gray-50/50">
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Part Code</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Description</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium uppercase text-gray-500">Qty</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Labour</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Materials</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Subcontract</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Overhead</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Cost</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Margin</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Sell</th>
-                  <th className="px-4 py-3 w-10"></th>
-                </tr>
-              </thead>
+              <thead>{tableHeaders}</thead>
               <tbody className="divide-y divide-border">
-                {quote.quoteLines.map((line) => (
-                  <QuoteLineRow key={line.id} line={line} quoteId={quote.id} onDelete={handleLineAdded} />
+                {mainLines.map((line) => (
+                  <QuoteLineRow
+                    key={line.id}
+                    line={line}
+                    quoteId={quote.id}
+                    isDraft={isDraft}
+                    onDelete={handleLineChanged}
+                  />
                 ))}
-                {quote.quoteLines.length === 0 && (
+                {mainLines.length === 0 && (
                   <tr>
-                    <td colSpan={11} className="px-6 py-8 text-center text-gray-400">
+                    <td colSpan={isDraft ? 10 : 9} className="px-6 py-8 text-center text-gray-400">
                       No line items yet. Add your first line below.
                     </td>
+                  </tr>
+                )}
+                {/* Main subtotal row */}
+                {mainLines.length > 0 && (
+                  <tr className="bg-gray-50 font-medium">
+                    <td colSpan={5} className="px-4 py-2.5 text-sm text-gray-700 text-right">
+                      Main Items Subtotal
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono text-sm text-gray-900">
+                      {formatCurrency(totalCost)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono text-sm text-gray-600">
+                      {overallMargin.toFixed(1)}%
+                    </td>
+                    <td colSpan={1}></td>
+                    <td className="px-4 py-2.5 text-right font-mono text-sm font-semibold text-blue-700">
+                      {formatCurrency(totalSell)}
+                    </td>
+                    {isDraft && <td></td>}
                   </tr>
                 )}
               </tbody>
@@ -288,14 +330,62 @@ export default function QuoteDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Optional Extras */}
+      {(optionalLines.length > 0 || isDraft) && (
+        <Card>
+          <CardContent className="p-0">
+            <div className="px-4 py-3 border-b border-border">
+              <h3 className="text-sm font-medium text-amber-700">Optional Extras</h3>
+              <p className="text-xs text-gray-500">Not included in quote totals — shown separately to the customer</p>
+            </div>
+            {optionalLines.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>{tableHeaders}</thead>
+                  <tbody className="divide-y divide-border">
+                    {optionalLines.map((line) => (
+                      <QuoteLineRow
+                        key={line.id}
+                        line={line}
+                        quoteId={quote.id}
+                        isDraft={isDraft}
+                        onDelete={handleLineChanged}
+                      />
+                    ))}
+                    {/* Optional subtotal row */}
+                    <tr className="bg-amber-50/50 font-medium">
+                      <td colSpan={5} className="px-4 py-2.5 text-sm text-amber-700 text-right">
+                        Optional Extras Subtotal
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-mono text-sm text-gray-900">
+                        {formatCurrency(optionalCost)}
+                      </td>
+                      <td></td>
+                      <td colSpan={1}></td>
+                      <td className="px-4 py-2.5 text-right font-mono text-sm font-semibold text-amber-700">
+                        {formatCurrency(optionalSell)}
+                      </td>
+                      {isDraft && <td></td>}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {optionalLines.length === 0 && (
+              <div className="px-6 py-6 text-center text-gray-400 text-sm">
+                No optional extras. Mark a line as &quot;Optional Extra&quot; when adding it.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Add Line Form */}
-      {quote.status === "DRAFT" && (
+      {isDraft && (
         <QuoteLineForm
           quoteId={quote.id}
           catalogueItems={catalogueItems}
-          defaultOverhead={10}
-          defaultMargin={15}
-          onLineAdded={handleLineAdded}
+          onLineAdded={handleLineChanged}
         />
       )}
 

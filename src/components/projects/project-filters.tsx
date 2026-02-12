@@ -8,6 +8,8 @@ import { useRef } from "react"
 const statuses = ["ALL", "OPPORTUNITY", "QUOTATION", "DESIGN", "MANUFACTURE", "INSTALLATION", "REVIEW", "COMPLETE"]
 const salesStages = ["ALL", "OPPORTUNITY", "QUOTED", "ORDER"]
 const workStreams = ["ALL", "COMMUNITY", "UTILITIES", "BESPOKE", "BLAST", "BUND_CONTAINMENT", "REFURBISHMENT", "ADHOC"]
+const priorities = ["ALL", "NORMAL", "HIGH", "CRITICAL"]
+const classifications = ["ALL", "NORMAL", "MEGA", "SUB_CONTRACT"]
 
 function prettify(val: string) {
   if (val === "ALL") return "All"
@@ -74,6 +76,28 @@ export function ProjectFilters() {
         onChange={(e) => updateFilter("workStream", e.target.value)}
       >
         {workStreams.map((s) => (
+          <option key={s} value={s}>{prettify(s)}</option>
+        ))}
+      </select>
+
+      <select
+        className={selectClass}
+        value={searchParams.get("priority") || "ALL"}
+        onChange={(e) => updateFilter("priority", e.target.value)}
+      >
+        <option value="ALL">All Priorities</option>
+        {priorities.filter(p => p !== "ALL").map((s) => (
+          <option key={s} value={s}>{prettify(s)}</option>
+        ))}
+      </select>
+
+      <select
+        className={selectClass}
+        value={searchParams.get("classification") || "ALL"}
+        onChange={(e) => updateFilter("classification", e.target.value)}
+      >
+        <option value="ALL">All Types</option>
+        {classifications.filter(c => c !== "ALL").map((s) => (
           <option key={s} value={s}>{prettify(s)}</option>
         ))}
       </select>

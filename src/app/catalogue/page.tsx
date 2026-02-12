@@ -29,12 +29,9 @@ export default async function CataloguePage() {
                 <tr className="border-b border-border bg-gray-50/50">
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Part Code</th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Description</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Materials</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Labour Hrs</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Labour Rate</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Subcontract</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Plant</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Guide Cost</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Guide Unit Cost</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Guide Margin %</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Units</th>
                   <th className="px-4 py-3 text-center text-xs font-medium uppercase text-gray-500">Used</th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Edit</th>
                 </tr>
@@ -45,7 +42,7 @@ export default async function CataloguePage() {
                 ))}
                 {items.length === 0 && (
                   <tr>
-                    <td colSpan={10} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                       No catalogue items. Add products to your catalogue to get started.
                     </td>
                   </tr>

@@ -109,8 +109,8 @@ export default async function QuotesPage() {
                       </Badge>
                     </td>
                     <td className="px-6 py-3 text-center font-mono text-gray-600">{quote._count.quoteLines}</td>
-                    <td className="px-6 py-3 text-right font-mono text-gray-600">{quote.totalCost ? formatCurrency(quote.totalCost) : "—"}</td>
-                    <td className="px-6 py-3 text-right font-mono font-medium text-gray-900">{quote.totalSell ? formatCurrency(quote.totalSell) : "—"}</td>
+                    <td className="px-6 py-3 text-right font-mono text-gray-600">{quote.totalCost ? formatCurrency(Number(quote.totalCost)) : "—"}</td>
+                    <td className="px-6 py-3 text-right font-mono font-medium text-gray-900">{quote.totalSell ? formatCurrency(Number(quote.totalSell)) : "—"}</td>
                     <td className="px-6 py-3 text-right font-mono text-gray-600">
                       {quote.overallMargin ? `${Number(quote.overallMargin).toFixed(1)}%` : "—"}
                     </td>

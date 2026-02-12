@@ -13,11 +13,9 @@ type CatalogueItem = {
   description: string
   classId: string
   active: boolean
-  guideMaterialCost: string | number | null
-  guideLabourHours: string | number | null
-  guideLabourRate: string | number | null
-  guideSubcontractCost: string | number | null
-  guidePlantCost: string | number | null
+  guideUnitCost: string | number | null
+  guideMarginPercent: string | number | null
+  defaultUnits: string | null
   _count: { products: number }
 }
 
@@ -28,21 +26,13 @@ export function EditCatalogueRow({ item }: { item: CatalogueItem }) {
   const nameRef = useRef<HTMLInputElement>(null)
 
   const [description, setDescription] = useState(item.description)
-  const [guideMaterialCost, setGuideMaterialCost] = useState(String(item.guideMaterialCost || ""))
-  const [guideLabourHours, setGuideLabourHours] = useState(String(item.guideLabourHours || ""))
-  const [guideLabourRate, setGuideLabourRate] = useState(String(item.guideLabourRate || ""))
-  const [guideSubcontractCost, setGuideSubcontractCost] = useState(String(item.guideSubcontractCost || ""))
-  const [guidePlantCost, setGuidePlantCost] = useState(String(item.guidePlantCost || ""))
+  const [guideUnitCost, setGuideUnitCost] = useState(String(item.guideUnitCost || ""))
+  const [guideMarginPercent, setGuideMarginPercent] = useState(String(item.guideMarginPercent || ""))
+  const [defaultUnits, setDefaultUnits] = useState(item.defaultUnits || "nr")
 
   useEffect(() => {
     if (editing && nameRef.current) nameRef.current.focus()
   }, [editing])
-
-  const guideCost =
-    (Number(guideLabourHours || 0) * Number(guideLabourRate || 0)) +
-    Number(guideMaterialCost || 0) +
-    Number(guideSubcontractCost || 0) +
-    Number(guidePlantCost || 0)
 
   async function handleSave() {
     setSaving(true)
@@ -52,11 +42,9 @@ export function EditCatalogueRow({ item }: { item: CatalogueItem }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           description,
-          guideMaterialCost: guideMaterialCost || null,
-          guideLabourHours: guideLabourHours || null,
-          guideLabourRate: guideLabourRate || null,
-          guideSubcontractCost: guideSubcontractCost || null,
-          guidePlantCost: guidePlantCost || null,
+          guideUnitCost: guideUnitCost || null,
+          guideMarginPercent: guideMarginPercent || null,
+          defaultUnits,
         }),
       })
       setEditing(false)
@@ -68,11 +56,9 @@ export function EditCatalogueRow({ item }: { item: CatalogueItem }) {
 
   function handleCancel() {
     setDescription(item.description)
-    setGuideMaterialCost(String(item.guideMaterialCost || ""))
-    setGuideLabourHours(String(item.guideLabourHours || ""))
-    setGuideLabourRate(String(item.guideLabourRate || ""))
-    setGuideSubcontractCost(String(item.guideSubcontractCost || ""))
-    setGuidePlantCost(String(item.guidePlantCost || ""))
+    setGuideUnitCost(String(item.guideUnitCost || ""))
+    setGuideMarginPercent(String(item.guideMarginPercent || ""))
+    setDefaultUnits(item.defaultUnits || "nr")
     setEditing(false)
   }
 
@@ -86,12 +72,19 @@ export function EditCatalogueRow({ item }: { item: CatalogueItem }) {
         <td className="px-4 py-2">
           <input ref={nameRef} value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} />
         </td>
-        <td className="px-4 py-2"><input value={guideMaterialCost} onChange={(e) => setGuideMaterialCost(e.target.value)} className={smallInput} placeholder="0" /></td>
-        <td className="px-4 py-2"><input value={guideLabourHours} onChange={(e) => setGuideLabourHours(e.target.value)} className={smallInput} placeholder="0" /></td>
-        <td className="px-4 py-2"><input value={guideLabourRate} onChange={(e) => setGuideLabourRate(e.target.value)} className={smallInput} placeholder="0" /></td>
-        <td className="px-4 py-2"><input value={guideSubcontractCost} onChange={(e) => setGuideSubcontractCost(e.target.value)} className={smallInput} placeholder="0" /></td>
-        <td className="px-4 py-2"><input value={guidePlantCost} onChange={(e) => setGuidePlantCost(e.target.value)} className={smallInput} placeholder="0" /></td>
-        <td className="px-4 py-2 text-right text-sm font-medium text-gray-900">{formatCurrency(guideCost)}</td>
+        <td className="px-4 py-2"><input value={guideUnitCost} onChange={(e) => setGuideUnitCost(e.target.value)} className={smallInput} placeholder="0" /></td>
+        <td className="px-4 py-2"><input value={guideMarginPercent} onChange={(e) => setGuideMarginPercent(e.target.value)} className={smallInput} placeholder="40" /></td>
+        <td className="px-4 py-2">
+          <select value={defaultUnits} onChange={(e) => setDefaultUnits(e.target.value)} className="w-16 rounded border border-border px-1 py-1 text-xs focus:border-blue-500 focus:outline-none">
+            <option value="nr">nr</option>
+            <option value="item">item</option>
+            <option value="set">set</option>
+            <option value="lot">lot</option>
+            <option value="m">m</option>
+            <option value="m2">m2</option>
+            <option value="kg">kg</option>
+          </select>
+        </td>
         <td className="px-4 py-2 text-center text-xs text-gray-500">{item._count.products}</td>
         <td className="px-4 py-2">
           <div className="flex items-center gap-1">
@@ -107,23 +100,18 @@ export function EditCatalogueRow({ item }: { item: CatalogueItem }) {
     )
   }
 
-  const actualGuideCost =
-    (Number(item.guideLabourHours || 0) * Number(item.guideLabourRate || 0)) +
-    Number(item.guideMaterialCost || 0) +
-    Number(item.guideSubcontractCost || 0) +
-    Number(item.guidePlantCost || 0)
-
   return (
     <tr className="hover:bg-gray-50 transition-colors">
       <td className="px-4 py-2 font-mono text-xs font-medium text-gray-700">{item.partCode}</td>
       <td className="px-4 py-2 text-sm text-gray-900">{item.description}</td>
-      <td className="px-4 py-2 text-right text-xs text-gray-600">{item.guideMaterialCost ? formatCurrency(item.guideMaterialCost) : "—"}</td>
-      <td className="px-4 py-2 text-right text-xs text-gray-600">{item.guideLabourHours ? `${item.guideLabourHours}h` : "—"}</td>
-      <td className="px-4 py-2 text-right text-xs text-gray-600">{item.guideLabourRate ? formatCurrency(item.guideLabourRate) : "—"}</td>
-      <td className="px-4 py-2 text-right text-xs text-gray-600">{item.guideSubcontractCost ? formatCurrency(item.guideSubcontractCost) : "—"}</td>
-      <td className="px-4 py-2 text-right text-xs text-gray-600">{item.guidePlantCost ? formatCurrency(item.guidePlantCost) : "—"}</td>
       <td className="px-4 py-2 text-right text-sm font-medium text-gray-900">
-        {actualGuideCost > 0 ? formatCurrency(actualGuideCost) : "—"}
+        {item.guideUnitCost ? formatCurrency(item.guideUnitCost) : "—"}
+      </td>
+      <td className="px-4 py-2 text-right text-xs text-gray-600">
+        {item.guideMarginPercent ? `${item.guideMarginPercent}%` : "—"}
+      </td>
+      <td className="px-4 py-2 text-center text-xs text-gray-600">
+        {item.defaultUnits || "—"}
       </td>
       <td className="px-4 py-2 text-center">
         <Badge variant="secondary" className="bg-gray-100 text-gray-700">{item._count.products}</Badge>

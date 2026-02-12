@@ -11,14 +11,22 @@ export async function GET(
     include: {
       customer: true,
       coordinator: true,
+      projectManager: { select: { id: true, name: true } },
+      installManager: { select: { id: true, name: true } },
       products: {
         include: {
           designer: { select: { name: true } },
           coordinator: { select: { name: true } },
         },
       },
+      ncrs: {
+        orderBy: { raisedDate: "desc" },
+        include: {
+          project: { select: { partCode: true, description: true } },
+        },
+      },
       _count: {
-        select: { products: true, quotes: true, purchaseOrders: true, documents: true },
+        select: { products: true, quotes: true, purchaseOrders: true, documents: true, ncrs: true },
       },
     },
   })
@@ -39,15 +47,34 @@ export async function PATCH(
 
   const data: Record<string, unknown> = {}
   const fields = [
-    "name", "customerId", "coordinatorId", "projectType", "workStream",
-    "salesStage", "projectStatus", "contractType", "siteLocation", "notes",
+    "name", "customerId", "coordinatorId", "projectManagerId", "installManagerId",
+    "projectType", "workStream", "salesStage", "projectStatus", "contractType",
+    "siteLocation", "deliveryType", "projectRegion", "notes",
+    "priority", "classification", "ragStatus", "projectSubStatus",
+    "lifecycleStage",
   ]
   for (const field of fields) {
     if (body[field] !== undefined) data[field] = body[field]
   }
-  const dateFields = ["enquiryReceived", "quoteSubmitted", "orderReceived", "targetCompletion", "actualCompletion"]
+  // Handle empty strings for optional FK fields
+  for (const fk of ["customerId", "coordinatorId", "projectManagerId", "installManagerId"]) {
+    if (data[fk] === "") data[fk] = null
+  }
+  // Handle ragStatus empty
+  if (data.ragStatus === "") data.ragStatus = null
+
+  const dateFields = ["enquiryReceived", "quoteSubmitted", "orderReceived", "targetCompletion", "actualCompletion", "p0Date", "p1Date", "p2Date", "p3Date", "p4Date", "p5Date"]
   for (const field of dateFields) {
     if (body[field] !== undefined) data[field] = body[field] ? new Date(body[field]) : null
+  }
+
+  // Boolean fields
+  if (body.isICUFlag !== undefined) data.isICUFlag = body.isICUFlag === true || body.isICUFlag === "true"
+
+  // Decimal fields
+  const decimalFields = ["estimatedValue", "contractValue", "currentCost"]
+  for (const field of decimalFields) {
+    if (body[field] !== undefined) data[field] = body[field] ? parseFloat(body[field]) : null
   }
 
   const project = await prisma.project.update({

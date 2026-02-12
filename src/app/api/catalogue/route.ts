@@ -19,11 +19,9 @@ export async function POST(request: NextRequest) {
       partCode: body.partCode,
       description: body.description,
       classId: body.classId || "PROD",
-      guideMaterialCost: body.guideMaterialCost ? parseFloat(body.guideMaterialCost) : null,
-      guideLabourHours: body.guideLabourHours ? parseFloat(body.guideLabourHours) : null,
-      guideLabourRate: body.guideLabourRate ? parseFloat(body.guideLabourRate) : null,
-      guideSubcontractCost: body.guideSubcontractCost ? parseFloat(body.guideSubcontractCost) : null,
-      guidePlantCost: body.guidePlantCost ? parseFloat(body.guidePlantCost) : null,
+      guideUnitCost: body.guideUnitCost ? parseFloat(body.guideUnitCost) : null,
+      guideMarginPercent: body.guideMarginPercent ? parseFloat(body.guideMarginPercent) : null,
+      defaultUnits: body.defaultUnits || null,
     },
   })
 

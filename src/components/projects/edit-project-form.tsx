@@ -46,6 +46,34 @@ const contractTypes = [
   { value: "OTHER", label: "Other" },
 ]
 
+const priorities = [
+  { value: "NORMAL", label: "Normal" },
+  { value: "HIGH", label: "High" },
+  { value: "CRITICAL", label: "Critical" },
+]
+
+const classifications = [
+  { value: "NORMAL", label: "Normal" },
+  { value: "MEGA", label: "Mega Project" },
+  { value: "SUB_CONTRACT", label: "Sub-contract" },
+]
+
+const ragStatuses = [
+  { value: "", label: "Not set" },
+  { value: "GREEN", label: "Green" },
+  { value: "AMBER", label: "Amber" },
+  { value: "RED", label: "Red" },
+]
+
+const lifecycleStages = [
+  { value: "P0", label: "P0 — Enquiry" },
+  { value: "P1", label: "P1 — Quotation" },
+  { value: "P2", label: "P2 — Order Handover" },
+  { value: "P3", label: "P3 — Design Review" },
+  { value: "P4", label: "P4 — Production Complete" },
+  { value: "P5", label: "P5 — Handover / Close" },
+]
+
 function toDateInputValue(date: string | Date | null | undefined): string {
   if (!date) return ""
   const d = typeof date === "string" ? new Date(date) : date
@@ -58,18 +86,36 @@ type ProjectData = {
   projectNumber: string
   customerId: string | null
   coordinatorId: string | null
+  projectManagerId: string | null
+  installManagerId: string | null
   projectType: string
   workStream: string
   salesStage: string
   projectStatus: string
   contractType: string
+  priority: string
+  isICUFlag: boolean
+  classification: string
+  ragStatus: string | null
   siteLocation: string | null
+  deliveryType: string | null
+  projectRegion: string | null
   notes: string | null
+  estimatedValue: string | number | null
+  contractValue: string | number | null
+  currentCost: string | number | null
+  lifecycleStage: string
   enquiryReceived: string | Date | null
   quoteSubmitted: string | Date | null
   orderReceived: string | Date | null
   targetCompletion: string | Date | null
   actualCompletion: string | Date | null
+  p0Date: string | Date | null
+  p1Date: string | Date | null
+  p2Date: string | Date | null
+  p3Date: string | Date | null
+  p4Date: string | Date | null
+  p5Date: string | Date | null
 }
 
 export function EditProjectForm({
@@ -83,13 +129,15 @@ export function EditProjectForm({
 }) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
+  const [isICU, setIsICU] = useState(project.isICUFlag)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSaving(true)
 
     const formData = new FormData(e.currentTarget)
-    const data = Object.fromEntries(formData)
+    const data: Record<string, unknown> = Object.fromEntries(formData)
+    data.isICUFlag = isICU
 
     try {
       await fetch(`/api/projects/${project.id}`, {
@@ -144,6 +192,82 @@ export function EditProjectForm({
             </div>
           </div>
 
+          {/* Project Manager & Install Manager */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="projectManagerId">Project Manager</Label>
+              <select id="projectManagerId" name="projectManagerId" className={selectClass} defaultValue={project.projectManagerId || ""}>
+                <option value="">Select manager...</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="installManagerId">Install Manager</Label>
+              <select id="installManagerId" name="installManagerId" className={selectClass} defaultValue={project.installManagerId || ""}>
+                <option value="">Select manager...</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Priority, Classification, RAG */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="priority">Priority</Label>
+              <select id="priority" name="priority" className={selectClass} defaultValue={project.priority}>
+                {priorities.map((p) => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="classification">Classification</Label>
+              <select id="classification" name="classification" className={selectClass} defaultValue={project.classification}>
+                {classifications.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ragStatus">RAG Status</Label>
+              <select id="ragStatus" name="ragStatus" className={selectClass} defaultValue={project.ragStatus || ""}>
+                {ragStatuses.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* ICU Flag */}
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="isICUFlag"
+              checked={isICU}
+              onChange={(e) => setIsICU(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            <Label htmlFor="isICUFlag" className="text-sm">
+              ICU Flag — Mark this project for urgent attention on the Motherboard
+            </Label>
+          </div>
+
+          {/* Lifecycle Stage */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="lifecycleStage">Lifecycle Stage (P0-P5)</Label>
+              <select id="lifecycleStage" name="lifecycleStage" className={selectClass} defaultValue={project.lifecycleStage || "P0"}>
+                {lifecycleStages.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           {/* Type & Work Stream */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -184,7 +308,7 @@ export function EditProjectForm({
             </div>
           </div>
 
-          {/* Contract Type */}
+          {/* Contract Type & Location */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="contractType">Contract Type</Label>
@@ -197,6 +321,34 @@ export function EditProjectForm({
             <div className="space-y-2">
               <Label htmlFor="siteLocation">Site Location</Label>
               <Input id="siteLocation" name="siteLocation" defaultValue={project.siteLocation || ""} />
+            </div>
+          </div>
+
+          {/* Region & Delivery Type */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="projectRegion">Region</Label>
+              <Input id="projectRegion" name="projectRegion" defaultValue={project.projectRegion || ""} placeholder="e.g. South Wales" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="deliveryType">Delivery Type</Label>
+              <Input id="deliveryType" name="deliveryType" defaultValue={project.deliveryType || ""} placeholder="e.g. Supply & Install" />
+            </div>
+          </div>
+
+          {/* Financial Values */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="estimatedValue">Estimated Value</Label>
+              <Input id="estimatedValue" name="estimatedValue" type="number" step="0.01" defaultValue={project.estimatedValue ? String(project.estimatedValue) : ""} placeholder="0.00" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="contractValue">Contract Value</Label>
+              <Input id="contractValue" name="contractValue" type="number" step="0.01" defaultValue={project.contractValue ? String(project.contractValue) : ""} placeholder="0.00" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="currentCost">Current Cost</Label>
+              <Input id="currentCost" name="currentCost" type="number" step="0.01" defaultValue={project.currentCost ? String(project.currentCost) : ""} placeholder="0.00" />
             </div>
           </div>
 
@@ -225,6 +377,37 @@ export function EditProjectForm({
             <div className="space-y-2">
               <Label htmlFor="actualCompletion">Actual Completion</Label>
               <Input id="actualCompletion" name="actualCompletion" type="date" defaultValue={toDateInputValue(project.actualCompletion)} />
+            </div>
+          </div>
+
+          {/* P-Gate Dates */}
+          <div className="border-t border-border pt-4">
+            <Label className="text-sm font-medium text-gray-700 mb-3 block">Lifecycle Gate Dates</Label>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="p0Date" className="text-xs">P0 — Enquiry</Label>
+                <Input id="p0Date" name="p0Date" type="date" defaultValue={toDateInputValue(project.p0Date)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="p1Date" className="text-xs">P1 — Quotation</Label>
+                <Input id="p1Date" name="p1Date" type="date" defaultValue={toDateInputValue(project.p1Date)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="p2Date" className="text-xs">P2 — Order Handover</Label>
+                <Input id="p2Date" name="p2Date" type="date" defaultValue={toDateInputValue(project.p2Date)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="p3Date" className="text-xs">P3 — Design Review</Label>
+                <Input id="p3Date" name="p3Date" type="date" defaultValue={toDateInputValue(project.p3Date)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="p4Date" className="text-xs">P4 — Production Complete</Label>
+                <Input id="p4Date" name="p4Date" type="date" defaultValue={toDateInputValue(project.p4Date)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="p5Date" className="text-xs">P5 — Handover / Close</Label>
+                <Input id="p5Date" name="p5Date" type="date" defaultValue={toDateInputValue(project.p5Date)} />
+              </div>
             </div>
           </div>
 

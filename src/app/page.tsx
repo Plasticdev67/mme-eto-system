@@ -10,9 +10,15 @@ import {
   Plus,
   ArrowRight,
   TrendingUp,
+  PoundSterling,
+  FileText,
+  Siren,
+  Flame,
+  CheckCircle,
+  Clock,
 } from "lucide-react"
 import Link from "next/link"
-import { formatDate, getProjectStatusColor, getSalesStageColor, getDepartmentColor, prettifyEnum, calculateScheduleRag, getRagColor } from "@/lib/utils"
+import { formatDate, formatCurrency, getProjectStatusColor, getSalesStageColor, getDepartmentColor, prettifyEnum, calculateScheduleRag, getRagColor } from "@/lib/utils"
 
 async function getDashboardData() {
   const [
@@ -24,6 +30,20 @@ async function getDashboardData() {
     departmentCounts,
     recentProjects,
     overdueProducts,
+    // New: pipeline values
+    pipelineProjects,
+    // New: quote stats
+    totalQuotes,
+    draftQuotes,
+    submittedQuotes,
+    acceptedQuotes,
+    // New: ICU / priority projects
+    icuProjects,
+    criticalProjects,
+    // New: recent quotes
+    recentQuotes,
+    // New: NCR stats
+    openNcrs,
   ] = await Promise.all([
     prisma.project.count(),
     prisma.project.count({
@@ -47,7 +67,8 @@ async function getDashboardData() {
       include: {
         customer: { select: { name: true } },
         coordinator: { select: { name: true } },
-        _count: { select: { products: true } },
+        projectManager: { select: { name: true } },
+        _count: { select: { products: true, ncrs: true } },
       },
     }),
     prisma.product.findMany({
@@ -61,7 +82,50 @@ async function getDashboardData() {
         project: { select: { id: true, projectNumber: true, name: true } },
       },
     }),
+    // Pipeline values: all active projects with estimatedValue or contractValue
+    prisma.project.findMany({
+      where: { projectStatus: { notIn: ["COMPLETE"] } },
+      select: { estimatedValue: true, contractValue: true, salesStage: true },
+    }),
+    // Quote stats
+    prisma.quote.count(),
+    prisma.quote.count({ where: { status: "DRAFT" } }),
+    prisma.quote.count({ where: { status: "SUBMITTED" } }),
+    prisma.quote.count({ where: { status: "ACCEPTED" } }),
+    // ICU projects
+    prisma.project.findMany({
+      where: { isICUFlag: true, projectStatus: { not: "COMPLETE" } },
+      select: { id: true, projectNumber: true, name: true, customer: { select: { name: true } } },
+    }),
+    // Critical projects
+    prisma.project.findMany({
+      where: { priority: "CRITICAL", isICUFlag: false, projectStatus: { not: "COMPLETE" } },
+      select: { id: true, projectNumber: true, name: true, customer: { select: { name: true } } },
+    }),
+    // Recent quotes
+    prisma.quote.findMany({
+      take: 5,
+      orderBy: { updatedAt: "desc" },
+      include: {
+        customer: { select: { name: true } },
+      },
+    }),
+    // Open NCRs
+    prisma.nonConformanceReport.count({
+      where: { status: { in: ["OPEN", "INVESTIGATING"] } },
+    }),
   ])
+
+  // Calculate pipeline values
+  let opportunityValue = 0
+  let quotedValue = 0
+  let orderValue = 0
+  for (const p of pipelineProjects) {
+    const value = Number(p.contractValue || p.estimatedValue || 0)
+    if (p.salesStage === "OPPORTUNITY") opportunityValue += value
+    else if (p.salesStage === "QUOTED") quotedValue += value
+    else if (p.salesStage === "ORDER") orderValue += value
+  }
 
   return {
     totalProjects,
@@ -72,7 +136,24 @@ async function getDashboardData() {
     departmentCounts,
     recentProjects,
     overdueProducts,
+    pipeline: { opportunityValue, quotedValue, orderValue, total: opportunityValue + quotedValue + orderValue },
+    quotes: { total: totalQuotes, draft: draftQuotes, submitted: submittedQuotes, accepted: acceptedQuotes },
+    icuProjects,
+    criticalProjects,
+    recentQuotes,
+    openNcrs,
   }
+}
+
+function getQuoteStatusColor(status: string) {
+  const colors: Record<string, string> = {
+    DRAFT: "bg-gray-100 text-gray-800",
+    SUBMITTED: "bg-blue-100 text-blue-800",
+    ACCEPTED: "bg-green-100 text-green-800",
+    DECLINED: "bg-red-100 text-red-800",
+    REVISED: "bg-amber-100 text-amber-800",
+  }
+  return colors[status] || "bg-gray-100 text-gray-800"
 }
 
 export default async function DashboardPage() {
@@ -84,68 +165,95 @@ export default async function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500">Overview of all projects and operations</p>
+          <p className="text-sm text-gray-500">MM Engineered Solutions — Overview</p>
         </div>
         <div className="flex items-center gap-3">
+          <Link href="/quotes/new">
+            <Button variant="outline">
+              <FileText className="mr-2 h-4 w-4" />
+              New Quote
+            </Button>
+          </Link>
           <Link href="/projects/new">
             <Button>
               <Plus className="mr-2 h-4 w-4" />
               New Project
             </Button>
           </Link>
-          <Link href="/tracker">
-            <Button variant="outline">
-              <ListChecks className="mr-2 h-4 w-4" />
-              Open Tracker
-            </Button>
-          </Link>
         </div>
       </div>
 
-      {/* Stat cards - now clickable */}
+      {/* ICU / Priority alerts */}
+      {(data.icuProjects.length > 0 || data.criticalProjects.length > 0) && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-1">
+          <div className="text-xs font-semibold uppercase text-red-700 mb-1">Priority Alerts</div>
+          {data.icuProjects.map((p) => (
+            <Link key={p.id} href={`/projects/${p.id}`}>
+              <div className="flex items-center gap-2 text-sm hover:bg-red-100/50 rounded px-1 py-0.5">
+                <Siren className="h-4 w-4 text-red-600" />
+                <span className="font-mono text-xs font-semibold">{p.projectNumber}</span>
+                <span className="text-red-800">{p.name}</span>
+                <span className="text-red-500 text-xs">— ICU</span>
+                {p.customer && <span className="ml-auto text-xs text-red-400">{p.customer.name}</span>}
+              </div>
+            </Link>
+          ))}
+          {data.criticalProjects.map((p) => (
+            <Link key={p.id} href={`/projects/${p.id}`}>
+              <div className="flex items-center gap-2 text-sm hover:bg-red-100/50 rounded px-1 py-0.5">
+                <Flame className="h-4 w-4 text-red-500" />
+                <span className="font-mono text-xs font-semibold">{p.projectNumber}</span>
+                <span className="text-red-800">{p.name}</span>
+                <span className="text-red-500 text-xs">— Critical</span>
+                {p.customer && <span className="ml-auto text-xs text-red-400">{p.customer.name}</span>}
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* Pipeline value cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Link href="/projects">
-          <Card className="transition-shadow hover:shadow-md cursor-pointer">
-            <CardContent className="p-6">
+        <Card className="border-l-4 border-l-blue-500">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase">Pipeline Total</p>
+                <p className="text-2xl font-semibold text-gray-900">{formatCurrency(data.pipeline.total)}</p>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
+                <PoundSterling className="h-5 w-5 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Link href="/projects?salesStage=OPPORTUNITY">
+          <Card className="transition-shadow hover:shadow-md cursor-pointer border-l-4 border-l-gray-300">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Total Projects</p>
-                  <p className="text-3xl font-semibold text-gray-900">{data.totalProjects}</p>
+                  <p className="text-xs font-medium text-gray-500 uppercase">Opportunities</p>
+                  <p className="text-2xl font-semibold text-gray-900">{formatCurrency(data.pipeline.opportunityValue)}</p>
                 </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-50">
-                  <FolderKanban className="h-6 w-6 text-blue-600" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-50">
+                  <TrendingUp className="h-5 w-5 text-gray-500" />
                 </div>
               </div>
             </CardContent>
           </Card>
         </Link>
 
-        <Link href="/projects?status=DESIGN&status=MANUFACTURE&status=INSTALLATION">
-          <Card className="transition-shadow hover:shadow-md cursor-pointer">
-            <CardContent className="p-6">
+        <Link href="/projects?salesStage=QUOTED">
+          <Card className="transition-shadow hover:shadow-md cursor-pointer border-l-4 border-l-amber-400">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Active Projects</p>
-                  <p className="text-3xl font-semibold text-gray-900">{data.activeProjects}</p>
+                  <p className="text-xs font-medium text-gray-500 uppercase">Quoted</p>
+                  <p className="text-2xl font-semibold text-gray-900">{formatCurrency(data.pipeline.quotedValue)}</p>
                 </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-50">
-                  <TrendingUp className="h-6 w-6 text-emerald-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/tracker">
-          <Card className="transition-shadow hover:shadow-md cursor-pointer">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Total Products</p>
-                  <p className="text-3xl font-semibold text-gray-900">{data.totalProducts}</p>
-                </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-50">
-                  <Package className="h-6 w-6 text-amber-600" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50">
+                  <FileText className="h-5 w-5 text-amber-500" />
                 </div>
               </div>
             </CardContent>
@@ -153,20 +261,56 @@ export default async function DashboardPage() {
         </Link>
 
         <Link href="/projects?salesStage=ORDER">
-          <Card className="transition-shadow hover:shadow-md cursor-pointer">
-            <CardContent className="p-6">
+          <Card className="transition-shadow hover:shadow-md cursor-pointer border-l-4 border-l-green-500">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-500">On Order</p>
-                  <p className="text-3xl font-semibold text-gray-900">{data.orderProjects}</p>
+                  <p className="text-xs font-medium text-gray-500 uppercase">On Order</p>
+                  <p className="text-2xl font-semibold text-gray-900">{formatCurrency(data.pipeline.orderValue)}</p>
                 </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-50">
-                  <FolderKanban className="h-6 w-6 text-green-600" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-50">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
         </Link>
+      </div>
+
+      {/* Quick stats row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+        <Link href="/projects">
+          <div className="rounded-lg border border-border p-3 text-center transition-shadow hover:shadow-md cursor-pointer">
+            <div className="text-2xl font-semibold text-gray-900">{data.totalProjects}</div>
+            <div className="text-xs text-gray-500">Total Projects</div>
+          </div>
+        </Link>
+        <Link href="/board">
+          <div className="rounded-lg border border-border p-3 text-center transition-shadow hover:shadow-md cursor-pointer">
+            <div className="text-2xl font-semibold text-emerald-700">{data.activeProjects}</div>
+            <div className="text-xs text-gray-500">Active Projects</div>
+          </div>
+        </Link>
+        <Link href="/tracker">
+          <div className="rounded-lg border border-border p-3 text-center transition-shadow hover:shadow-md cursor-pointer">
+            <div className="text-2xl font-semibold text-gray-900">{data.totalProducts}</div>
+            <div className="text-xs text-gray-500">Products</div>
+          </div>
+        </Link>
+        <Link href="/quotes">
+          <div className="rounded-lg border border-border p-3 text-center transition-shadow hover:shadow-md cursor-pointer">
+            <div className="text-2xl font-semibold text-gray-900">{data.quotes.total}</div>
+            <div className="text-xs text-gray-500">Quotes</div>
+          </div>
+        </Link>
+        <div className="rounded-lg border border-border p-3 text-center">
+          <div className="text-2xl font-semibold text-blue-700">{data.quotes.submitted}</div>
+          <div className="text-xs text-gray-500">Awaiting Response</div>
+        </div>
+        <div className="rounded-lg border border-border p-3 text-center">
+          <div className={`text-2xl font-semibold ${data.openNcrs > 0 ? "text-red-600" : "text-gray-900"}`}>{data.openNcrs}</div>
+          <div className="text-xs text-gray-500">Open NCRs</div>
+        </div>
       </div>
 
       {/* Product pipeline by department */}
@@ -212,43 +356,46 @@ export default async function DashboardPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-t border-border">
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">No.</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Project</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Customer</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Sales</th>
-                    <th className="px-6 py-3 text-center text-xs font-medium uppercase text-gray-500">Products</th>
-                    <th className="px-6 py-3 text-center text-xs font-medium uppercase text-gray-500">RAG</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">No.</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Project</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Customer</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Status</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium uppercase text-gray-500">Items</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Value</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium uppercase text-gray-500">RAG</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {data.recentProjects.map((project) => {
-                    const scheduleRag = calculateScheduleRag(project.targetCompletion)
+                    const scheduleRag = project.ragStatus as "GREEN" | "AMBER" | "RED" | null || calculateScheduleRag(project.targetCompletion)
                     return (
                       <tr key={project.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-3">
-                          <Link href={`/projects/${project.id}`} className="font-mono text-sm font-medium text-blue-600 hover:text-blue-700">
+                        <td className="px-4 py-2.5">
+                          <Link href={`/projects/${project.id}`} className="font-mono text-xs font-medium text-blue-600 hover:text-blue-700">
                             {project.projectNumber}
                           </Link>
                         </td>
-                        <td className="px-6 py-3">
-                          <Link href={`/projects/${project.id}`} className="font-medium text-gray-900 hover:text-blue-600">
+                        <td className="px-4 py-2.5">
+                          <Link href={`/projects/${project.id}`} className="font-medium text-gray-900 hover:text-blue-600 text-sm">
                             {project.name}
                           </Link>
+                          {project.projectManager && (
+                            <div className="text-xs text-gray-400">{project.projectManager.name}</div>
+                          )}
                         </td>
-                        <td className="px-6 py-3 text-gray-500">{project.customer?.name || "—"}</td>
-                        <td className="px-6 py-3">
-                          <Badge variant="secondary" className={getProjectStatusColor(project.projectStatus)}>
+                        <td className="px-4 py-2.5 text-xs text-gray-500">{project.customer?.name || "—"}</td>
+                        <td className="px-4 py-2.5">
+                          <Badge variant="secondary" className={`${getProjectStatusColor(project.projectStatus)} text-[10px]`}>
                             {prettifyEnum(project.projectStatus)}
                           </Badge>
                         </td>
-                        <td className="px-6 py-3">
-                          <Badge variant="secondary" className={getSalesStageColor(project.salesStage)}>
-                            {prettifyEnum(project.salesStage)}
-                          </Badge>
+                        <td className="px-4 py-2.5 text-center font-mono text-xs text-gray-600">{project._count.products}</td>
+                        <td className="px-4 py-2.5 text-right text-xs font-mono text-gray-700">
+                          {project.contractValue || project.estimatedValue
+                            ? formatCurrency(Number(project.contractValue || project.estimatedValue))
+                            : "—"}
                         </td>
-                        <td className="px-6 py-3 text-center font-mono text-gray-600">{project._count.products}</td>
-                        <td className="px-6 py-3 text-center">
+                        <td className="px-4 py-2.5 text-center">
                           <div className={`mx-auto h-3 w-3 rounded-full ${getRagColor(scheduleRag)}`} />
                         </td>
                       </tr>
@@ -267,8 +414,48 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Right column: Attention needed + Status breakdown */}
+        {/* Right column */}
         <div className="space-y-6">
+          {/* Recent Quotes */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-semibold">Recent Quotes</CardTitle>
+                <Link href="/quotes" className="text-sm font-medium text-blue-600 hover:text-blue-700">
+                  View all <ArrowRight className="ml-1 inline h-3 w-3" />
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {data.recentQuotes.length > 0 ? (
+                <div className="space-y-2">
+                  {data.recentQuotes.map((quote) => (
+                    <Link key={quote.id} href={`/quotes/${quote.id}`}>
+                      <div className="flex items-center justify-between rounded-lg border border-border p-2.5 transition-shadow hover:shadow-sm cursor-pointer">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-medium text-gray-700">{quote.quoteNumber}</span>
+                            <Badge variant="secondary" className={`${getQuoteStatusColor(quote.status)} text-[10px]`}>
+                              {prettifyEnum(quote.status)}
+                            </Badge>
+                          </div>
+                          <div className="text-xs text-gray-500 mt-0.5">{quote.customer.name}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-mono font-medium text-gray-900">
+                            {quote.totalSell ? formatCurrency(Number(quote.totalSell)) : "—"}
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No quotes yet.</p>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Overdue / attention needed */}
           <Card>
             <CardHeader className="pb-3">
@@ -279,10 +466,10 @@ export default async function DashboardPage() {
             </CardHeader>
             <CardContent>
               {data.overdueProducts.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {data.overdueProducts.map((product) => (
                     <Link key={product.id} href={`/projects/${product.project.id}`}>
-                      <div className="rounded-lg border border-red-100 bg-red-50 p-3 transition-shadow hover:shadow-sm cursor-pointer">
+                      <div className="rounded-lg border border-red-100 bg-red-50 p-2.5 transition-shadow hover:shadow-sm cursor-pointer">
                         <p className="text-sm font-medium text-gray-900">{product.description}</p>
                         <p className="text-xs text-gray-500">
                           {product.project.projectNumber} — {product.project.name}
@@ -306,7 +493,7 @@ export default async function DashboardPage() {
               <CardTitle className="text-base font-semibold">Projects by Stage</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {data.projectsByStatus.map((group) => (
                   <Link key={group.projectStatus} href={`/projects?status=${group.projectStatus}`}>
                     <div className="flex items-center justify-between rounded-lg px-3 py-2 transition-colors hover:bg-gray-50 cursor-pointer">

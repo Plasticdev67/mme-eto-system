@@ -24,17 +24,33 @@ export async function POST(request: NextRequest) {
       name: body.name,
       customerId: body.customerId || null,
       coordinatorId: body.coordinatorId || null,
+      projectManagerId: body.projectManagerId || null,
+      installManagerId: body.installManagerId || null,
       projectType: body.projectType || "STANDARD",
       workStream: body.workStream || "ADHOC",
       salesStage: body.salesStage || "OPPORTUNITY",
       projectStatus: body.projectStatus || "OPPORTUNITY",
       contractType: body.contractType || "STANDARD",
+      priority: body.priority || "NORMAL",
+      classification: body.classification || "NORMAL",
+      estimatedValue: body.estimatedValue ? parseFloat(body.estimatedValue) : null,
+      contractValue: body.contractValue ? parseFloat(body.contractValue) : null,
       siteLocation: body.siteLocation || null,
+      deliveryType: body.deliveryType || null,
+      projectRegion: body.projectRegion || null,
       notes: body.notes || null,
       enquiryReceived: body.enquiryReceived ? new Date(body.enquiryReceived) : null,
       targetCompletion: body.targetCompletion ? new Date(body.targetCompletion) : null,
     },
   })
+
+  // If created from a quote, link it
+  if (body.quoteId) {
+    await prisma.quote.update({
+      where: { id: body.quoteId },
+      data: { projectId: project.id },
+    })
+  }
 
   return NextResponse.json(project, { status: 201 })
 }

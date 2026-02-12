@@ -19,6 +19,12 @@ async function getProjects(searchParams: Record<string, string | undefined>) {
   if (searchParams.workStream && searchParams.workStream !== "ALL") {
     where.workStream = searchParams.workStream
   }
+  if (searchParams.priority && searchParams.priority !== "ALL") {
+    where.priority = searchParams.priority
+  }
+  if (searchParams.classification && searchParams.classification !== "ALL") {
+    where.classification = searchParams.classification
+  }
   if (searchParams.search) {
     where.OR = [
       { name: { contains: searchParams.search, mode: "insensitive" } },

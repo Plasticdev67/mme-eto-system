@@ -22,6 +22,8 @@ model User {
 
   // Relations
   coordinatedProjects  Project[]  @relation("ProjectCoordinator")
+  managedProjects      Project[]  @relation("ProjectManager")
+  installManagedProjects Project[] @relation("InstallManager")
   coordinatedProducts  Product[]  @relation("ProductCoordinator")
   designedProducts     Product[]  @relation("ProductDesigner")
   createdQuotes        Quote[]    @relation("QuoteCreator")
@@ -106,6 +108,8 @@ model Supplier {
   // Relations
   contacts       SupplierContact[]
   purchaseOrders PurchaseOrder[]
+  plantHires     PlantHire[]
+  subContracts   SubContractorWork[]
 
   @@map("suppliers")
 }
@@ -136,6 +140,8 @@ model Project {
   name            String
   customerId      String?
   coordinatorId   String?
+  projectManagerId  String?
+  installManagerId  String?
 
   projectType     ProjectType     @default(STANDARD)
   workStream      WorkStream      @default(ADHOC)
@@ -143,7 +149,32 @@ model Project {
   projectStatus   ProjectStatus   @default(OPPORTUNITY)
   contractType    ContractType    @default(STANDARD)
 
+  // Lifecycle gates (P0-P5)
+  lifecycleStage  LifecycleStage @default(P0)
+  p0Date          DateTime?
+  p1Date          DateTime?
+  p2Date          DateTime?
+  p3Date          DateTime?
+  p4Date          DateTime?
+  p5Date          DateTime?
+
+  // Sprint 2: Board / Kanban fields
+  priority        ProjectPriority        @default(NORMAL)
+  isICUFlag       Boolean                @default(false)
+  classification  ProjectClassification  @default(NORMAL)
+  ragStatus       RagStatus?
+  projectSubStatus String?
+
+  // Financial values
+  estimatedValue  Decimal? @db.Decimal(12, 2)
+  contractValue   Decimal? @db.Decimal(12, 2)
+  currentCost     Decimal? @db.Decimal(12, 2)
+  ncrCost         Decimal? @db.Decimal(12, 2)
+
+  // Location / delivery
   siteLocation    String?
+  deliveryType    String?
+  projectRegion   String?
   notes           String?
 
   // Key dates
@@ -157,12 +188,19 @@ model Project {
   updatedAt DateTime @updatedAt
 
   // Relations
-  customer       Customer?       @relation(fields: [customerId], references: [id])
-  coordinator    User?           @relation("ProjectCoordinator", fields: [coordinatorId], references: [id])
-  products       Product[]
-  quotes         Quote[]
-  purchaseOrders PurchaseOrder[]
-  documents      Document[]
+  customer        Customer?       @relation(fields: [customerId], references: [id])
+  coordinator     User?           @relation("ProjectCoordinator", fields: [coordinatorId], references: [id])
+  projectManager  User?           @relation("ProjectManager", fields: [projectManagerId], references: [id])
+  installManager  User?           @relation("InstallManager", fields: [installManagerId], references: [id])
+  products        Product[]
+  quotes          Quote[]
+  purchaseOrders  PurchaseOrder[]
+  documents       Document[]
+  ncrs            NonConformanceReport[]
+  retentions      RetentionHoldback[]
+  plantHires      PlantHire[]
+  subContracts    SubContractorWork[]
+  costCategories  ProjectCostCategory[]
 
   @@map("projects")
 }
@@ -205,6 +243,71 @@ enum ContractType {
   OTHER
 }
 
+enum ProjectPriority {
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum ProjectClassification {
+  NORMAL
+  MEGA
+  SUB_CONTRACT
+}
+
+enum RagStatus {
+  GREEN
+  AMBER
+  RED
+}
+
+enum LifecycleStage {
+  P0 // Enquiry
+  P1 // Quotation
+  P2 // Order Handover
+  P3 // Design Review
+  P4 // Production Complete
+  P5 // Handover / Close
+}
+
+// ============================================================
+// NON-CONFORMANCE REPORTS (NCRs)
+// ============================================================
+
+model NonConformanceReport {
+  id           String      @id @default(cuid())
+  ncrNumber    String      @unique
+  projectId    String
+  productId    String?
+  title        String
+  description  String?
+  severity     NcrSeverity @default(MINOR)
+  status       NcrStatus   @default(OPEN)
+  costImpact   Decimal?    @db.Decimal(12, 2)
+  raisedDate   DateTime    @default(now())
+  closedDate   DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  project Product? @relation("NcrProduct", fields: [productId], references: [id])
+  parentProject Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("non_conformance_reports")
+}
+
+enum NcrSeverity {
+  MINOR
+  MAJOR
+  CRITICAL
+}
+
+enum NcrStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  CLOSED
+}
+
 // ============================================================
 // PRODUCT CATALOGUE (Reference data)
 // ============================================================
@@ -217,11 +320,9 @@ model ProductCatalogue {
   active       Boolean @default(true)
 
   // Guide pricing (pre-fill when quoting)
-  guideMaterialCost   Decimal? @db.Decimal(12, 2)
-  guideLabourHours    Decimal? @db.Decimal(10, 2)
-  guideLabourRate     Decimal? @db.Decimal(10, 2)
-  guideSubcontractCost Decimal? @db.Decimal(12, 2)
-  guidePlantCost      Decimal? @db.Decimal(12, 2)
+  guideUnitCost      Decimal? @db.Decimal(12, 2)
+  guideMarginPercent Decimal? @db.Decimal(5, 2)
+  defaultUnits       String?
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -301,6 +402,8 @@ model Product {
   quoteLines    QuoteLine[]
   poLines       PurchaseOrderLine[]
   documents     Document[]
+  ncrs          NonConformanceReport[] @relation("NcrProduct")
+  subContracts  SubContractorWork[]
 
   @@map("products")
 }
@@ -376,20 +479,20 @@ model QuoteLine {
   productId       String?
   catalogueItemId String?
   description     String
+  dimensions      String?
   quantity        Int     @default(1)
+  units           String?
 
-  // Cost breakdown
-  labourHours    Decimal? @db.Decimal(10, 2)
-  labourRate     Decimal? @db.Decimal(10, 2)
-  labourCost     Decimal? @db.Decimal(12, 2)
-  materialCost   Decimal? @db.Decimal(12, 2)
-  subcontractCost Decimal? @db.Decimal(12, 2)
-  plantCost      Decimal? @db.Decimal(12, 2)
-  overheadPercent Decimal? @db.Decimal(5, 2)
-  overheadCost   Decimal? @db.Decimal(12, 2)
+  // Pricing
+  unitCost       Decimal? @db.Decimal(12, 2)
   costTotal      Decimal? @db.Decimal(12, 2)
   marginPercent  Decimal? @db.Decimal(5, 2)
   sellPrice      Decimal? @db.Decimal(12, 2)
+
+  // Flags
+  isOptional      Boolean @default(false)
+  sortOrder       Int     @default(0)
+  marginOverride  Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -486,4 +589,113 @@ enum DocumentType {
   PHOTO
   CORRESPONDENCE
   OTHER
+}
+
+// ============================================================
+// RETENTION HOLDBACKS
+// ============================================================
+
+model RetentionHoldback {
+  id                String          @id @default(cuid())
+  projectId         String
+  retentionPercent  Decimal?        @db.Decimal(5, 2)
+  retentionAmount   Decimal?        @db.Decimal(12, 2)
+  releaseDate       DateTime?
+  status            RetentionStatus @default(HELD)
+  notes             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("retention_holdbacks")
+}
+
+enum RetentionStatus {
+  HELD
+  PARTIALLY_RELEASED
+  RELEASED
+}
+
+// ============================================================
+// PLANT HIRE
+// ============================================================
+
+model PlantHire {
+  id          String          @id @default(cuid())
+  projectId   String
+  supplierId  String?
+  description String
+  hireStart   DateTime?
+  hireEnd     DateTime?
+  weeklyRate  Decimal?        @db.Decimal(12, 2)
+  totalCost   Decimal?        @db.Decimal(12, 2)
+  status      PlantHireStatus @default(ON_HIRE)
+  notes       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  supplier Supplier? @relation(fields: [supplierId], references: [id])
+
+  @@map("plant_hires")
+}
+
+enum PlantHireStatus {
+  ON_HIRE
+  OFF_HIRE
+  RETURNED
+}
+
+// ============================================================
+// SUB-CONTRACTOR WORK
+// ============================================================
+
+model SubContractorWork {
+  id            String             @id @default(cuid())
+  projectId     String
+  supplierId    String?
+  productId     String?
+  description   String
+  agreedValue   Decimal?           @db.Decimal(12, 2)
+  invoicedToDate Decimal?          @db.Decimal(12, 2)
+  status        SubContractStatus  @default(IN_PROGRESS)
+  notes         String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  supplier Supplier? @relation(fields: [supplierId], references: [id])
+  product  Product?  @relation(fields: [productId], references: [id])
+
+  @@map("sub_contractor_works")
+}
+
+enum SubContractStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETE
+  DISPUTED
+}
+
+// ============================================================
+// PROJECT COST CATEGORIES (Sage integration)
+// ============================================================
+
+model ProjectCostCategory {
+  id            String  @id @default(cuid())
+  projectId     String
+  costCode      String
+  description   String
+  budgetAmount  Decimal? @db.Decimal(12, 2)
+  actualAmount  Decimal? @db.Decimal(12, 2)
+  committedAmount Decimal? @db.Decimal(12, 2)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, costCode])
+  @@map("project_cost_categories")
 }

@@ -22,10 +22,10 @@ export async function GET(
       },
       createdBy: { select: { name: true } },
       quoteLines: {
-        orderBy: { createdAt: "asc" },
+        orderBy: [{ isOptional: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
         include: {
           product: { select: { partCode: true, description: true } },
-          catalogueItem: { select: { partCode: true, description: true } },
+          catalogueItem: { select: { partCode: true, description: true, guideUnitCost: true } },
         },
       },
     },
@@ -58,8 +58,10 @@ export async function PATCH(
     let totalCost = 0
     let totalSell = 0
     for (const line of lines) {
-      totalCost += Number(line.costTotal || 0)
-      totalSell += Number(line.sellPrice || 0)
+      if (!line.isOptional) {
+        totalCost += Number(line.costTotal || 0)
+        totalSell += Number(line.sellPrice || 0)
+      }
     }
     data.totalCost = totalCost
     data.totalSell = totalSell
