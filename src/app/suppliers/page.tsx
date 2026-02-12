@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
+import Link from "next/link"
 import { NewSupplierDialog } from "@/components/suppliers/new-supplier-dialog"
 
 async function getSuppliers() {
@@ -43,7 +44,9 @@ export default async function SuppliersPage() {
               <tbody className="divide-y divide-border">
                 {suppliers.map((supplier) => (
                   <tr key={supplier.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-3 font-medium text-gray-900">{supplier.name}</td>
+                    <td className="px-6 py-3 font-medium text-gray-900">
+                      <Link href={`/suppliers/${supplier.id}`} className="hover:text-blue-600">{supplier.name}</Link>
+                    </td>
                     <td className="px-6 py-3 text-gray-500">{supplier.whatTheySupply || "—"}</td>
                     <td className="px-6 py-3 text-gray-500">{supplier.email || "—"}</td>
                     <td className="px-6 py-3 text-gray-500">{supplier.phone || "—"}</td>

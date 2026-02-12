@@ -36,6 +36,18 @@ const contractTypes = [
   { value: "OTHER", label: "Other" },
 ]
 
+const priorities = [
+  { value: "NORMAL", label: "Normal" },
+  { value: "HIGH", label: "High" },
+  { value: "CRITICAL", label: "Critical" },
+]
+
+const classifications = [
+  { value: "NORMAL", label: "Normal" },
+  { value: "MEGA", label: "Mega Project" },
+  { value: "SUB_CONTRACT", label: "Sub-contract" },
+]
+
 export function NewProjectForm({
   customers,
   users,
@@ -66,6 +78,8 @@ export function NewProjectForm({
     }
   }
 
+  const selectClass = "w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+
   return (
     <form onSubmit={handleSubmit}>
       <Card>
@@ -80,11 +94,7 @@ export function NewProjectForm({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="customerId">Customer</Label>
-              <select
-                id="customerId"
-                name="customerId"
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
+              <select id="customerId" name="customerId" className={selectClass}>
                 <option value="">Select customer...</option>
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
@@ -93,11 +103,7 @@ export function NewProjectForm({
             </div>
             <div className="space-y-2">
               <Label htmlFor="coordinatorId">Project Coordinator</Label>
-              <select
-                id="coordinatorId"
-                name="coordinatorId"
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
+              <select id="coordinatorId" name="coordinatorId" className={selectClass}>
                 <option value="">Select coordinator...</option>
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>{u.name}</option>
@@ -106,15 +112,57 @@ export function NewProjectForm({
             </div>
           </div>
 
+          {/* Project Manager & Install Manager */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="projectManagerId">Project Manager</Label>
+              <select id="projectManagerId" name="projectManagerId" className={selectClass}>
+                <option value="">Select manager...</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="installManagerId">Install Manager</Label>
+              <select id="installManagerId" name="installManagerId" className={selectClass}>
+                <option value="">Select manager...</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Priority & Classification & Value */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="priority">Priority</Label>
+              <select id="priority" name="priority" className={selectClass}>
+                {priorities.map((p) => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="classification">Classification</Label>
+              <select id="classification" name="classification" className={selectClass}>
+                {classifications.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="estimatedValue">Estimated Value</Label>
+              <Input id="estimatedValue" name="estimatedValue" type="number" step="0.01" placeholder="0.00" />
+            </div>
+          </div>
+
           {/* Type & Work Stream */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="projectType">Project Type</Label>
-              <select
-                id="projectType"
-                name="projectType"
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
+              <select id="projectType" name="projectType" className={selectClass}>
                 {projectTypes.map((t) => (
                   <option key={t.value} value={t.value}>{t.label}</option>
                 ))}
@@ -122,11 +170,7 @@ export function NewProjectForm({
             </div>
             <div className="space-y-2">
               <Label htmlFor="workStream">Work Stream</Label>
-              <select
-                id="workStream"
-                name="workStream"
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
+              <select id="workStream" name="workStream" className={selectClass}>
                 {workStreams.map((w) => (
                   <option key={w.value} value={w.value}>{w.label}</option>
                 ))}
@@ -138,11 +182,7 @@ export function NewProjectForm({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="salesStage">Sales Stage</Label>
-              <select
-                id="salesStage"
-                name="salesStage"
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
+              <select id="salesStage" name="salesStage" className={selectClass}>
                 {salesStages.map((s) => (
                   <option key={s.value} value={s.value}>{s.label}</option>
                 ))}
@@ -150,11 +190,7 @@ export function NewProjectForm({
             </div>
             <div className="space-y-2">
               <Label htmlFor="contractType">Contract Type</Label>
-              <select
-                id="contractType"
-                name="contractType"
-                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
+              <select id="contractType" name="contractType" className={selectClass}>
                 {contractTypes.map((c) => (
                   <option key={c.value} value={c.value}>{c.label}</option>
                 ))}
@@ -162,10 +198,16 @@ export function NewProjectForm({
             </div>
           </div>
 
-          {/* Site Location */}
-          <div className="space-y-2">
-            <Label htmlFor="siteLocation">Site Location</Label>
-            <Input id="siteLocation" name="siteLocation" placeholder="e.g. Essex, UK" />
+          {/* Site Location & Region */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="siteLocation">Site Location</Label>
+              <Input id="siteLocation" name="siteLocation" placeholder="e.g. Essex, UK" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="projectRegion">Region</Label>
+              <Input id="projectRegion" name="projectRegion" placeholder="e.g. South Wales" />
+            </div>
           </div>
 
           {/* Dates */}

@@ -32,6 +32,7 @@ import {
 import { ProductStatusActions } from "@/components/projects/product-status-actions"
 import { AddProductDialog } from "@/components/projects/add-product-dialog"
 import { RaiseNcrDialog } from "@/components/projects/raise-ncr-dialog"
+import { DocumentManager } from "@/components/projects/document-manager"
 
 async function getProject(id: string) {
   const project = await prisma.project.findUnique({
@@ -70,6 +71,12 @@ async function getProject(id: string) {
       },
       costCategories: {
         orderBy: { costCode: "asc" },
+      },
+      documents: {
+        orderBy: { uploadedAt: "desc" },
+        include: {
+          product: { select: { id: true, partCode: true, description: true } },
+        },
       },
       _count: {
         select: {
@@ -834,11 +841,15 @@ export default async function ProjectDetailPage({
 
         {/* Documents Tab */}
         <TabsContent value="documents">
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-sm text-gray-500">Document management coming soon.</p>
-            </CardContent>
-          </Card>
+          <DocumentManager
+            projectId={project.id}
+            documents={JSON.parse(JSON.stringify(project.documents))}
+            products={project.products.map((p) => ({
+              id: p.id,
+              partCode: p.partCode,
+              description: p.description,
+            }))}
+          />
         </TabsContent>
       </Tabs>
     </div>
