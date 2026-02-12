@@ -205,6 +205,7 @@ model Project {
   salesInvoices   SalesInvoice[]
   variations      Variation[]
   portalTokens    CustomerPortalToken[]
+  resourceEstimates ProjectResourceEstimate[]
 
   @@map("projects")
 }
@@ -386,6 +387,18 @@ model Product {
   installTargetDate       DateTime?
   installCompletionDate   DateTime?
   installStatus           String?
+
+  // Estimated hours per stage (drives capacity planning)
+  designEstimatedHours      Decimal? @db.Decimal(8, 1)
+  productionEstimatedHours  Decimal? @db.Decimal(8, 1)
+  installEstimatedHours     Decimal? @db.Decimal(8, 1)
+  opsEstimatedHours         Decimal? @db.Decimal(8, 1)
+
+  // Ops / Pre-production planning stage
+  opsPlannedStart           DateTime?
+  opsTargetDate             DateTime?
+  opsCompletionDate         DateTime?
+  opsStatus                 String?
 
   // Review
   asBuiltComplete         Boolean  @default(false)
@@ -866,6 +879,40 @@ model AuditLog {
   @@index([entity, entityId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ============================================================
+// CAPACITY PLANNING
+// ============================================================
+
+model DepartmentCapacity {
+  id              String   @id @default(cuid())
+  department      String   @unique  // DESIGN, PRODUCTION, INSTALLATION
+  displayName     String
+  hoursPerWeek    Decimal  @db.Decimal(8, 1)
+  headcount       Int      @default(1)
+  notes           String?
+  updatedAt       DateTime @updatedAt
+
+  @@map("department_capacities")
+}
+
+model ProjectResourceEstimate {
+  id              String   @id @default(cuid())
+  projectId       String
+  department      String   // DESIGN, PRODUCTION, INSTALLATION
+  estimatedHours  Decimal  @db.Decimal(8, 1)
+  plannedStart    DateTime?
+  plannedEnd      DateTime?
+  actualHours     Decimal? @db.Decimal(8, 1)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, department])
+  @@map("project_resource_estimates")
 }
 
 // ============================================================
