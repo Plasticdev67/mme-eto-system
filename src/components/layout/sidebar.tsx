@@ -16,6 +16,7 @@ import {
   UsersRound,
   BookOpen,
   PoundSterling,
+  Upload,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react"
@@ -34,6 +35,7 @@ const navigation = [
   { name: "Catalogue", href: "/catalogue", icon: BookOpen },
   { name: "Team", href: "/team", icon: UsersRound },
   { name: "Reports", href: "/reports", icon: BarChart3 },
+  { name: "Import", href: "/import", icon: Upload },
 ]
 
 export function Sidebar() {
