@@ -44,12 +44,47 @@ export async function POST(request: NextRequest) {
     },
   })
 
-  // If created from a quote, link it
+  // If created from a quote, link it and carry quote lines through as products
   if (body.quoteId) {
     await prisma.quote.update({
       where: { id: body.quoteId },
       data: { projectId: project.id },
     })
+
+    // Fetch all non-optional quote lines and create products from them
+    const quoteLines = await prisma.quoteLine.findMany({
+      where: { quoteId: body.quoteId, isOptional: false },
+      include: { catalogueItem: { select: { partCode: true } } },
+      orderBy: { sortOrder: "asc" },
+    })
+
+    if (quoteLines.length > 0) {
+      await prisma.product.createMany({
+        data: quoteLines.map((line) => ({
+          projectId: project.id,
+          catalogueItemId: line.catalogueItemId,
+          partCode: line.catalogueItem?.partCode || line.description.substring(0, 30),
+          description: line.description,
+          additionalDetails: line.dimensions || null,
+          quantity: line.quantity,
+          currentDepartment: "PLANNING" as const,
+        })),
+      })
+
+      // Link quote lines to their new products by matching order
+      const createdProducts = await prisma.product.findMany({
+        where: { projectId: project.id },
+        orderBy: { createdAt: "asc" },
+        select: { id: true },
+      })
+
+      for (let i = 0; i < quoteLines.length && i < createdProducts.length; i++) {
+        await prisma.quoteLine.update({
+          where: { id: quoteLines[i].id },
+          data: { productId: createdProducts[i].id },
+        })
+      }
+    }
   }
 
   return NextResponse.json(project, { status: 201 })

@@ -201,6 +201,7 @@ model Project {
   plantHires      PlantHire[]
   subContracts    SubContractorWork[]
   costCategories  ProjectCostCategory[]
+  salesInvoices   SalesInvoice[]
 
   @@map("projects")
 }
@@ -540,20 +541,22 @@ enum POStatus {
 }
 
 model PurchaseOrderLine {
-  id          String  @id @default(cuid())
-  poId        String
-  productId   String?
-  description String
-  quantity    Int     @default(1)
-  unitCost    Decimal? @db.Decimal(12, 2)
-  totalCost   Decimal? @db.Decimal(12, 2)
-  received    Boolean @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String  @id @default(cuid())
+  poId           String
+  productId      String?
+  nominalCodeId  String?
+  description    String
+  quantity       Int     @default(1)
+  unitCost       Decimal? @db.Decimal(12, 2)
+  totalCost      Decimal? @db.Decimal(12, 2)
+  received       Boolean @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relations
-  purchaseOrder PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
-  product       Product?      @relation(fields: [productId], references: [id])
+  purchaseOrder PurchaseOrder    @relation(fields: [poId], references: [id], onDelete: Cascade)
+  product       Product?         @relation(fields: [productId], references: [id])
+  nominalCode   NominalCode? @relation(fields: [nominalCodeId], references: [id])
 
   @@map("purchase_order_lines")
 }
@@ -622,21 +625,23 @@ enum RetentionStatus {
 // ============================================================
 
 model PlantHire {
-  id          String          @id @default(cuid())
-  projectId   String
-  supplierId  String?
-  description String
-  hireStart   DateTime?
-  hireEnd     DateTime?
-  weeklyRate  Decimal?        @db.Decimal(12, 2)
-  totalCost   Decimal?        @db.Decimal(12, 2)
-  status      PlantHireStatus @default(ON_HIRE)
-  notes       String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id             String          @id @default(cuid())
+  projectId      String
+  supplierId     String?
+  nominalCodeId  String?
+  description    String
+  hireStart      DateTime?
+  hireEnd        DateTime?
+  weeklyRate     Decimal?        @db.Decimal(12, 2)
+  totalCost      Decimal?        @db.Decimal(12, 2)
+  status         PlantHireStatus @default(ON_HIRE)
+  notes          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
-  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  supplier Supplier? @relation(fields: [supplierId], references: [id])
+  project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  supplier    Supplier?        @relation(fields: [supplierId], references: [id])
+  nominalCode NominalCode? @relation(fields: [nominalCodeId], references: [id])
 
   @@map("plant_hires")
 }
@@ -652,21 +657,23 @@ enum PlantHireStatus {
 // ============================================================
 
 model SubContractorWork {
-  id            String             @id @default(cuid())
-  projectId     String
-  supplierId    String?
-  productId     String?
-  description   String
-  agreedValue   Decimal?           @db.Decimal(12, 2)
-  invoicedToDate Decimal?          @db.Decimal(12, 2)
-  status        SubContractStatus  @default(IN_PROGRESS)
-  notes         String?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  id             String             @id @default(cuid())
+  projectId      String
+  supplierId     String?
+  productId      String?
+  nominalCodeId  String?
+  description    String
+  agreedValue    Decimal?           @db.Decimal(12, 2)
+  invoicedToDate Decimal?           @db.Decimal(12, 2)
+  status         SubContractStatus  @default(IN_PROGRESS)
+  notes          String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
-  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  supplier Supplier? @relation(fields: [supplierId], references: [id])
-  product  Product?  @relation(fields: [productId], references: [id])
+  project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  supplier    Supplier?        @relation(fields: [supplierId], references: [id])
+  product     Product?         @relation(fields: [productId], references: [id])
+  nominalCode NominalCode? @relation(fields: [nominalCodeId], references: [id])
 
   @@map("sub_contractor_works")
 }
@@ -679,23 +686,114 @@ enum SubContractStatus {
 }
 
 // ============================================================
-// PROJECT COST CATEGORIES (Sage integration)
+// NOMINAL CODES (Master cost code list — mirrors Sage format)
+// ============================================================
+
+model NominalCode {
+  id          String            @id @default(cuid())
+  code        String            @unique
+  description String
+  category    CostCategory      @default(MATERIALS)
+  active      Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // Relations — everything cost-coded points here
+  projectCostCategories ProjectCostCategory[]
+  purchaseOrderLines    PurchaseOrderLine[]
+  plantHires            PlantHire[]
+  subContracts          SubContractorWork[]
+
+  @@map("nominal_codes")
+}
+
+enum CostCategory {
+  MATERIALS
+  LABOUR
+  PLANT_HIRE
+  SUB_CONTRACT
+  TRANSPORT
+  OVERHEADS
+  PRELIMS
+  DESIGN
+  OTHER
+}
+
+// ============================================================
+// PROJECT COST CATEGORIES (Sage integration per project)
 // ============================================================
 
 model ProjectCostCategory {
-  id            String  @id @default(cuid())
-  projectId     String
-  costCode      String
-  description   String
-  budgetAmount  Decimal? @db.Decimal(12, 2)
-  actualAmount  Decimal? @db.Decimal(12, 2)
-  committedAmount Decimal? @db.Decimal(12, 2)
-  notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id               String  @id @default(cuid())
+  projectId        String
+  nominalCodeId    String?
+  costCode         String
+  description      String
+  budgetAmount     Decimal? @db.Decimal(12, 2)
+  actualAmount     Decimal? @db.Decimal(12, 2)
+  committedAmount  Decimal? @db.Decimal(12, 2)
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  nominalCode NominalCode? @relation(fields: [nominalCodeId], references: [id])
 
   @@unique([projectId, costCode])
   @@map("project_cost_categories")
+}
+
+// ============================================================
+// SALES INVOICING / APPLICATIONS FOR PAYMENT
+// ============================================================
+
+model SalesInvoice {
+  id               String        @id @default(cuid())
+  invoiceNumber    String        @unique
+  projectId        String
+  type             InvoiceType   @default(APPLICATION)
+  status           InvoiceStatus @default(DRAFT)
+
+  // Amounts
+  applicationAmount  Decimal?  @db.Decimal(12, 2)
+  certifiedAmount    Decimal?  @db.Decimal(12, 2)
+  retentionHeld      Decimal?  @db.Decimal(12, 2)
+  cisDeduction       Decimal?  @db.Decimal(12, 2)
+  netPayable         Decimal?  @db.Decimal(12, 2)
+  paidAmount         Decimal?  @db.Decimal(12, 2)
+
+  // Period / dates
+  periodFrom       DateTime?
+  periodTo         DateTime?
+  dateSubmitted    DateTime?
+  dateCertified    DateTime?
+  dateDue          DateTime?
+  datePaid         DateTime?
+
+  // References
+  certRef          String?
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("sales_invoices")
+}
+
+enum InvoiceType {
+  APPLICATION
+  INTERIM_INVOICE
+  FINAL_ACCOUNT
+  RETENTION_RELEASE
+  VARIATION
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SUBMITTED
+  CERTIFIED
+  OVERDUE
+  PAID
+  DISPUTED
 }

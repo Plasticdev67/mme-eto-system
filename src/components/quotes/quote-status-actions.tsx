@@ -136,7 +136,7 @@ export function QuoteStatusActions({
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
-              Quote <strong>{quoteSummary?.quoteNumber}</strong> has been accepted. Would you like to create a project for <strong>{quoteSummary?.customerName}</strong>?
+              Quote <strong>{quoteSummary?.quoteNumber}</strong> has been accepted. Create a project for <strong>{quoteSummary?.customerName}</strong>? All quoted line items will be carried through as products. You can remove any the customer didn&apos;t order.
             </p>
             <div className="rounded-lg border border-border bg-gray-50 p-3 text-sm space-y-1">
               <div className="flex justify-between">

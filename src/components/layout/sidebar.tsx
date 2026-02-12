@@ -15,6 +15,7 @@ import {
   BarChart3,
   UsersRound,
   BookOpen,
+  PoundSterling,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react"
@@ -27,6 +28,7 @@ const navigation = [
   { name: "Tracker", href: "/tracker", icon: ListChecks },
   { name: "Quotes", href: "/quotes", icon: FileText },
   { name: "Purchasing", href: "/purchasing", icon: ShoppingCart },
+  { name: "Finance", href: "/finance", icon: PoundSterling },
   { name: "Customers", href: "/customers", icon: Users },
   { name: "Suppliers", href: "/suppliers", icon: Truck },
   { name: "Catalogue", href: "/catalogue", icon: BookOpen },
